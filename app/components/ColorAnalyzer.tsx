@@ -1,6 +1,20 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { Camera, Image, ImageUpload, Palette } from "lucide-react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Modal,
+} from "react-native";
+import {
+  Camera as CameraIcon,
+  Image as ImageIcon,
+  ImageUpload,
+  Palette,
+  X,
+} from "lucide-react-native";
+import { Camera } from "expo-camera";
 import ColorDetails from "./ColorDetails";
 import ColorWheel from "./ColorWheel";
 
@@ -60,6 +74,12 @@ export default function ColorAnalyzer({
       setAnalyzing(false);
     }
   };
+
+  const [showCamera, setShowCamera] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const cameraRef = React.useRef(null);
 
   // Function to handle taking a photo
   const takePicture = async () => {
