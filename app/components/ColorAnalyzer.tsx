@@ -585,8 +585,8 @@ export default function ColorAnalyzer({
               <View
                 style={{
                   position: "absolute",
-                  left: crosshairPosition.x - 15,
-                  top: crosshairPosition.y - 15,
+                  left: crosshairPosition.x - 25,
+                  top: crosshairPosition.y - 25,
                   width: 50,
                   height: 50,
                   justifyContent: "center",
@@ -656,19 +656,6 @@ export default function ColorAnalyzer({
                 }}
               >
                 <Text className="text-white font-medium">Clear Image</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                className="bg-blue-500 px-4 py-2 rounded-lg"
-                onPress={() => {
-                  SkiaColorExtractor.clearCache();
-                  Alert.alert(
-                    "Cache Cleared",
-                    "Skia image cache has been cleared."
-                  );
-                }}
-              >
-                <Text className="text-white font-medium">Clear Cache</Text>
               </TouchableOpacity>
             </View>
           </View>
