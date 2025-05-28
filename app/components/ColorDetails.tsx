@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Copy } from "lucide-react-native";
+import SimilarColorsSelector from "./SimilarColorsSelector";
 
 interface ColorDetailsProps {
   color?: string; // HEX color string
@@ -38,19 +39,14 @@ const ColorDetails = ({
   return (
     <View className="bg-white p-4 rounded-lg shadow-md w-full">
       {/* Color Preview */}
-      <View className="flex-row items-center mb-4">
-        <View
-          style={{ backgroundColor: color }}
-          className="w-16 h-16 rounded-lg mr-4 shadow"
-        />
-        <View>
-          <Text className="text-lg font-bold">{color}</Text>
-          <View className="flex-row items-center mt-1">
-            <Text className="text-gray-500 mr-2">Copy</Text>
-            <Copy size={16} color="#6B7280" />
-          </View>
-        </View>
-      </View>
+      <SimilarColorsSelector
+        baseColor={color}
+        rybValues={rybValues}
+        onColorSelect={(selectedColor) => {
+          console.log("Selected color:", selectedColor);
+          // You can add additional logic here when a color is selected
+        }}
+      />
 
       {/* Color Values */}
       <View className="space-y-4">
@@ -94,7 +90,6 @@ const ColorDetails = ({
               <Text>Y: {ryb.y}</Text>
               <Text>B: {ryb.b}</Text>
             </View>
-
             {/* RYB Component Ratios */}
             <Text className="font-bold mt-2 mb-1">Component Ratios:</Text>
             <View className="flex-row h-6 rounded overflow-hidden mb-1">
@@ -115,7 +110,7 @@ const ColorDetails = ({
               <Text>Red: {rybRatios.r}%</Text>
               <Text>Yellow: {rybRatios.y}%</Text>
               <Text>Blue: {rybRatios.b}%</Text>
-            </View>
+            </View>{" "}
           </View>
         </View>
       </View>
