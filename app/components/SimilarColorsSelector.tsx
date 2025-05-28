@@ -96,7 +96,7 @@ const SimilarColorsSelector = ({
 
       colors.unshift({
         hex: darkerHex,
-        name: `${generateColorName(darkerHex, "darker")} ${i}`,
+        name: "", // TODO: fill name
         brightness: "darker",
       });
     }
@@ -230,13 +230,13 @@ const SimilarColorsSelector = ({
 
             {/* Color Info */}
             <View className="mt-2 items-center">
-              <Text
+              {/* <Text
                 className="text-xs font-medium text-center"
                 numberOfLines={2}
                 style={{ minHeight: 20 }}
               >
                 {color.name}
-              </Text>
+              </Text> */}
               <Text className="text-xs text-gray-500 font-mono ">
                 {color.hex}
               </Text>
