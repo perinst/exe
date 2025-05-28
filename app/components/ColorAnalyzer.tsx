@@ -44,6 +44,8 @@ import {
   type RYB,
 } from "../utils/convert";
 
+import { findNearestColorName } from "../utils/colorList";
+
 import { SkiaColorExtractor } from "../utils/skiaColorExtractor";
 
 type ColorSource = "camera" | "gallery" | "picker";
@@ -59,6 +61,7 @@ export default function ColorAnalyzer({
   onAddToPalette = () => {},
 }: ColorAnalyzerProps) {
   const [selectedColor, setSelectedColor] = useState<string>("#91E3A5");
+  const [selectedColorName, setSelectedColorName] = useState<string>("");
   const [activeSource, setActiveSource] = useState<ColorSource | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -102,7 +105,6 @@ export default function ColorAnalyzer({
       }
     })();
   }, [permission]);
-
   // Update color conversions when selectedColor changes
   useEffect(() => {
     if (selectedColor && selectedColor !== "") {
@@ -123,6 +125,10 @@ export default function ColorAnalyzer({
         lab,
         ryb,
       });
+
+      // Find and set the nearest color name
+      const colorName = findNearestColorName(selectedColor, "en");
+      setSelectedColorName(colorName);
     }
   }, [selectedColor]);
   // Initialize crosshair position to center
@@ -362,14 +368,14 @@ export default function ColorAnalyzer({
       Math.min(imageY, originalImageDimensions.height - 1)
     );
 
-    console.log(
-      `Touch: (${locationX.toFixed(1)}, ${locationY.toFixed(1)}) -> ` +
-        `Relative: (${relativeX.toFixed(1)}, ${relativeY.toFixed(1)}) -> ` +
-        `Image: (${clampedX}, ${clampedY})`
-    );
-    console.log(
-      `Scale factors: X=${scaleX.toFixed(3)}, Y=${scaleY.toFixed(3)}`
-    );
+    // console.log(
+    //   `Touch: (${locationX.toFixed(1)}, ${locationY.toFixed(1)}) -> ` +
+    //     `Relative: (${relativeX.toFixed(1)}, ${relativeY.toFixed(1)}) -> ` +
+    //     `Image: (${clampedX}, ${clampedY})`
+    // );
+    // console.log(
+    //   `Scale factors: X=${scaleX.toFixed(3)}, Y=${scaleY.toFixed(3)}`
+    // );
     try {
       setAnalyzing(true);
 
@@ -393,13 +399,13 @@ export default function ColorAnalyzer({
         const hexColor = rgbToHex(finalColor.r, finalColor.g, finalColor.b);
         setSelectedColor(hexColor);
 
-        console.log(
-          `Extracted color: ${hexColor} from RGB(${finalColor.r}, ${
-            finalColor.g
-          }, ${finalColor.b}) using ${
-            regionColor ? "region averaging" : "pixel sampling"
-          }`
-        );
+        // console.log(
+        //   `Extracted color: ${hexColor} from RGB(${finalColor.r}, ${
+        //     finalColor.g
+        //   }, ${finalColor.b}) using ${
+        //     regionColor ? "region averaging" : "pixel sampling"
+        //   }`
+        // );
       } else {
         console.log("Failed to extract color at coordinates");
       }
@@ -430,22 +436,22 @@ export default function ColorAnalyzer({
       y < 0 ||
       y >= originalImageDimensions.height
     ) {
-      console.log(`Coordinates out of bounds: (${x}, ${y})`);
+      // console.log(`Coordinates out of bounds: (${x}, ${y})`);
       return null;
     }
     try {
       // Use Skia-based color extraction for better accuracy and performance
       if (!imageUri) {
-        console.log("No image URI available for Skia extraction");
+        // console.log("No image URI available for Skia extraction");
         return null;
       }
 
       const color = await SkiaColorExtractor.getColorAtPixel(imageUri, x, y);
 
       if (color) {
-        console.log(
-          `SkiaColorExtractor result at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
-        );
+        // console.log(
+        //   `SkiaColorExtractor result at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
+        // );
         return { ...color, a: color.a || 255 };
       }
 
@@ -492,9 +498,9 @@ export default function ColorAnalyzer({
           const hexColor = rgbToHex(color.r, color.g, color.b);
           setSelectedColor(hexColor);
 
-          console.log(
-            `Real-time Skia analysis at center: ${hexColor} from RGB(${color.r}, ${color.g}, ${color.b})`
-          );
+          // console.log(
+          //   `Real-time Skia analysis at center: ${hexColor} from RGB(${color.r}, ${color.g}, ${color.b})`
+          // );
         } else {
           console.log("Failed to extract color from camera frame using Skia");
         }
@@ -666,10 +672,6 @@ export default function ColorAnalyzer({
                 Touch: ({crosshairPosition.x.toFixed(0)},{" "}
                 {crosshairPosition.y.toFixed(0)})
               </Text>
-              <Text className="text-xs text-gray-600">
-                Selected: {selectedColor} | RGB({colorConversions?.rgb.r},{" "}
-                {colorConversions?.rgb.g}, {colorConversions?.rgb.b})
-              </Text>
             </View>{" "}
             <View className="flex-row justify-center space-x-2 mt-2">
               <TouchableOpacity
@@ -736,14 +738,12 @@ export default function ColorAnalyzer({
                       </Text>
                     </View>
                   )}
-
                   {/* Center crosshair for real-time analysis */}
                   {!analyzing && (
                     <View style={styles.centerCrosshair}>
                       <Plus size={50} color="white" strokeWidth={2} />
                     </View>
                   )}
-
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={() => {
@@ -754,7 +754,14 @@ export default function ColorAnalyzer({
                   >
                     <X size={24} color="white" />
                   </TouchableOpacity>
-
+                  {/* Color name display - positioned between color code and close button */}
+                  {!analyzing && selectedColorName && (
+                    <View style={styles.colorNameContainer}>
+                      <Text style={styles.colorNameText}>
+                        {selectedColorName}
+                      </Text>
+                    </View>
+                  )}
                   {/* Color preview overlay */}
                   {!analyzing && (
                     <View style={styles.colorPreview}>
@@ -769,7 +776,6 @@ export default function ColorAnalyzer({
                       </Text>
                     </View>
                   )}
-
                   <View style={styles.cameraControls}>
                     <TouchableOpacity
                       style={[
@@ -918,6 +924,23 @@ const styles = StyleSheet.create({
   colorText: {
     color: "white",
     fontWeight: "bold",
+  },
+  colorNameContainer: {
+    position: "absolute",
+    top: 90,
+    left: 20,
+    right: 10,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    alignItems: "center",
+  },
+  colorNameText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
   noCameraAccess: {
     flex: 1,

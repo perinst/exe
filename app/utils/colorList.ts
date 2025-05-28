@@ -148,3 +148,49 @@ export const colorList = [
   { hex: "#FFFF00", en: "Yellow", vi: "Vàng" },
   { hex: "#9ACD32", en: "YellowGreen", vi: "Vàng lục" },
 ];
+
+// Function to convert hex to RGB
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : { r: 0, g: 0, b: 0 };
+}
+
+// Function to calculate color distance using Euclidean distance in RGB space
+function colorDistance(
+  rgb1: { r: number; g: number; b: number },
+  rgb2: { r: number; g: number; b: number }
+): number {
+  return Math.sqrt(
+    Math.pow(rgb1.r - rgb2.r, 2) +
+      Math.pow(rgb1.g - rgb2.g, 2) +
+      Math.pow(rgb1.b - rgb2.b, 2)
+  );
+}
+
+// Function to find the nearest color name for a given hex color
+export function findNearestColorName(
+  hexColor: string,
+  language: "en" | "vi" = "en"
+): string {
+  const targetRgb = hexToRgb(hexColor);
+  let nearestColor = colorList[0];
+  let minDistance = Infinity;
+
+  for (const color of colorList) {
+    const colorRgb = hexToRgb(color.hex);
+    const distance = colorDistance(targetRgb, colorRgb);
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearestColor = color;
+    }
+  }
+
+  return language === "vi" ? nearestColor.vi : nearestColor.en;
+}
