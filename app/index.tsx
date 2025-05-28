@@ -93,7 +93,9 @@ export default function HomeScreen() {
         {/* Bottom Navigation */}
         <View className="flex-row border-t border-gray-200">
           <TouchableOpacity
-            className={`flex-1 py-4 items-center ${activeTab === "analyzer" ? "bg-gray-100" : "bg-white"}`}
+            className={`flex-1 py-4 items-center ${
+              activeTab === "analyzer" ? "bg-gray-100" : "bg-white"
+            }`}
             onPress={() => setActiveTab("analyzer")}
           >
             <Camera
@@ -101,14 +103,18 @@ export default function HomeScreen() {
               color={activeTab === "analyzer" ? "#3b82f6" : "#6b7280"}
             />
             <Text
-              className={`mt-1 text-xs ${activeTab === "analyzer" ? "text-blue-500" : "text-gray-500"}`}
+              className={`mt-1 text-xs ${
+                activeTab === "analyzer" ? "text-blue-500" : "text-gray-500"
+              }`}
             >
               Analyzer
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className={`flex-1 py-4 items-center ${activeTab === "palette" ? "bg-gray-100" : "bg-white"}`}
+            className={`flex-1 py-4 items-center ${
+              activeTab === "palette" ? "bg-gray-100" : "bg-white"
+            }`}
             onPress={() => setActiveTab("palette")}
           >
             <Palette
@@ -116,14 +122,18 @@ export default function HomeScreen() {
               color={activeTab === "palette" ? "#3b82f6" : "#6b7280"}
             />
             <Text
-              className={`mt-1 text-xs ${activeTab === "palette" ? "text-blue-500" : "text-gray-500"}`}
+              className={`mt-1 text-xs ${
+                activeTab === "palette" ? "text-blue-500" : "text-gray-500"
+              }`}
             >
               Palettes
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className={`flex-1 py-4 items-center ${activeTab === "psychology" ? "bg-gray-100" : "bg-white"}`}
+            className={`flex-1 py-4 items-center ${
+              activeTab === "psychology" ? "bg-gray-100" : "bg-white"
+            }`}
             onPress={() => setActiveTab("psychology")}
           >
             <BookOpen
@@ -131,14 +141,18 @@ export default function HomeScreen() {
               color={activeTab === "psychology" ? "#3b82f6" : "#6b7280"}
             />
             <Text
-              className={`mt-1 text-xs ${activeTab === "psychology" ? "text-blue-500" : "text-gray-500"}`}
+              className={`mt-1 text-xs ${
+                activeTab === "psychology" ? "text-blue-500" : "text-gray-500"
+              }`}
             >
               Psychology
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className={`flex-1 py-4 items-center ${activeTab === "settings" ? "bg-gray-100" : "bg-white"}`}
+            className={`flex-1 py-4 items-center ${
+              activeTab === "settings" ? "bg-gray-100" : "bg-white"
+            }`}
             onPress={() => setActiveTab("settings")}
           >
             <Sliders
@@ -146,7 +160,9 @@ export default function HomeScreen() {
               color={activeTab === "settings" ? "#3b82f6" : "#6b7280"}
             />
             <Text
-              className={`mt-1 text-xs ${activeTab === "settings" ? "text-blue-500" : "text-gray-500"}`}
+              className={`mt-1 text-xs ${
+                activeTab === "settings" ? "text-blue-500" : "text-gray-500"
+              }`}
             >
               Settings
             </Text>

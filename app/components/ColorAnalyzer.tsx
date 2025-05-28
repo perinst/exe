@@ -25,7 +25,6 @@ import {
   RotateCcw,
   Plus,
 } from "lucide-react-native";
-// import ColorWheel from "./ColorWheel";
 import {
   hexToRgb,
   rgbToHex,
@@ -43,6 +42,7 @@ import {
   type Lab,
   type RYB,
 } from "../utils/convert";
+import { ColorExtractor, type ColorResult } from "../utils/colorExtractor";
 
 type ColorSource = "camera" | "gallery" | "picker";
 
@@ -218,7 +218,8 @@ export default function ColorAnalyzer({
     } finally {
       setAnalyzing(false);
     }
-  }; // Process image for color picking - simplified since we use direct coordinate extraction
+  };
+  // Process image for color picking - simplified since we use direct coordinate extraction
   const processImageForColorPicking = async (uri: string) => {
     try {
       setAnalyzing(true);
@@ -306,7 +307,9 @@ export default function ColorAnalyzer({
     } finally {
       setAnalyzing(false);
     }
-  }; // Accurate pixel color extraction using micro-cropping
+  };
+
+  // Accurate pixel color extraction using ColorExtractor utility
   const getColorAtPixel = async (
     x: number,
     y: number
@@ -317,20 +320,18 @@ export default function ColorAnalyzer({
     }
 
     try {
-      // Use the original image URI and dimensions for accurate extraction
-      const color = await extractColorAtCoordinates(
+      const color = await ColorExtractor.getColorAtPixel(
         imageUri,
         x,
         y,
-        imageDimensions.width,
-        imageDimensions.height
+        imageDimensions
       );
 
       if (color) {
         console.log(
           `Accurately extracted color at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
         );
-        return { ...color, a: 255 };
+        return { ...color, a: color.a || 255 };
       }
 
       return null;
@@ -339,197 +340,8 @@ export default function ColorAnalyzer({
       return null;
     }
   };
-  // Extract accurate color at specific coordinates using micro-cropping
-  const extractColorAtCoordinates = async (
-    imageUri: string,
-    x: number,
-    y: number,
-    originalWidth: number,
-    originalHeight: number
-  ): Promise<{ r: number; g: number; b: number } | null> => {
-    try {
-      // Create a tiny 3x3 crop around the target pixel for better accuracy
-      const cropSize = 3;
-      const halfCrop = Math.floor(cropSize / 2);
 
-      // Ensure crop bounds are within image
-      const cropX = Math.max(
-        0,
-        Math.min(originalWidth - cropSize, x - halfCrop)
-      );
-      const cropY = Math.max(
-        0,
-        Math.min(originalHeight - cropSize, y - halfCrop)
-      );
-
-      console.log(
-        `Extracting color at (${x}, ${y}) with ${cropSize}x${cropSize} crop from (${cropX}, ${cropY})`
-      );
-
-      // Crop the specific region
-      const croppedResult = await ImageManipulator.manipulateAsync(
-        imageUri,
-        [
-          {
-            crop: {
-              originX: cropX,
-              originY: cropY,
-              width: cropSize,
-              height: cropSize,
-            },
-          },
-        ],
-        {
-          compress: 1,
-          format: ImageManipulator.SaveFormat.PNG,
-          base64: true,
-        }
-      );
-
-      if (!croppedResult.base64) {
-        throw new Error("Failed to get base64 from cropped image");
-      }
-
-      // Convert the tiny crop to a larger size for easier analysis
-      const scaledResult = await ImageManipulator.manipulateAsync(
-        croppedResult.uri,
-        [{ resize: { width: 100, height: 100 } }],
-        {
-          compress: 1,
-          format: ImageManipulator.SaveFormat.PNG,
-          base64: true,
-        }
-      );
-
-      if (!scaledResult.base64) {
-        throw new Error("Failed to get base64 from scaled image");
-      }
-
-      // Extract colors from the scaled version and get the average
-      const colors = await extractColorsFromBase64(scaledResult.base64);
-
-      if (colors.length > 0) {
-        // Calculate average color from all extracted colors
-        const avgColor = calculateAverageColor(colors);
-        console.log(
-          `Extracted average color: RGB(${avgColor.r}, ${avgColor.g}, ${avgColor.b})`
-        );
-        return avgColor;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error extracting color at coordinates:", error);
-      return null;
-    }
-  };
-
-  // Extract actual colors from base64 image data
-  const extractColorsFromBase64 = async (
-    base64: string
-  ): Promise<{ r: number; g: number; b: number }[]> => {
-    try {
-      // Remove data URL prefix if present
-      const cleanBase64 = base64.replace(/^data:image\/[a-z]+;base64,/, "");
-
-      // Convert base64 to binary
-      const binaryString = atob(cleanBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const colors: { r: number; g: number; b: number }[] = [];
-
-      // Look for color patterns in the PNG data
-      // PNG stores pixel data in IDAT chunks, but we'll sample the entire file
-      // to catch any RGB values that represent actual pixel colors
-
-      let validColorCount = 0;
-      const maxColors = 100; // Limit to prevent too much processing
-
-      for (
-        let i = 0;
-        i < bytes.length - 2 && validColorCount < maxColors;
-        i++
-      ) {
-        const r = bytes[i];
-        const g = bytes[i + 1];
-        const b = bytes[i + 2];
-
-        // Check if this looks like a valid RGB color value
-        if (isValidRGBColor(r, g, b)) {
-          colors.push({ r, g, b });
-          validColorCount++;
-        }
-      }
-
-      console.log(`Extracted ${colors.length} valid colors from base64 data`);
-      return colors;
-    } catch (error) {
-      console.error("Error extracting colors from base64:", error);
-      return [];
-    }
-  };
-
-  // Check if RGB values represent a valid color (not metadata or headers)
-  const isValidRGBColor = (r: number, g: number, b: number): boolean => {
-    // Filter out obviously invalid values
-    if (r === undefined || g === undefined || b === undefined) return false;
-    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) return false;
-
-    // Filter out common PNG metadata patterns
-    if (r === 0 && g === 0 && b === 0) return false; // Pure black (often padding)
-    if (r === 255 && g === 255 && b === 255) return false; // Pure white (often padding)
-    if (r === g && g === b && (r === 0 || r === 255)) return false; // Pure grayscale extremes
-
-    // Filter out ASCII text ranges (common in metadata)
-    if (r >= 32 && r <= 126 && g >= 32 && g <= 126 && b >= 32 && b <= 126) {
-      // Could be text, be more selective
-      const variance = Math.abs(r - g) + Math.abs(g - b) + Math.abs(r - b);
-      return variance > 30; // Only accept if there's significant color variation
-    }
-
-    return true;
-  };
-
-  // Calculate average color from an array of colors
-  const calculateAverageColor = (
-    colors: { r: number; g: number; b: number }[]
-  ): { r: number; g: number; b: number } => {
-    if (colors.length === 0) {
-      return { r: 128, g: 128, b: 128 }; // Default gray
-    }
-
-    const sum = colors.reduce(
-      (acc, color) => ({
-        r: acc.r + color.r,
-        g: acc.g + color.g,
-        b: acc.b + color.b,
-      }),
-      { r: 0, g: 0, b: 0 }
-    );
-
-    return {
-      r: Math.round(sum.r / colors.length),
-      g: Math.round(sum.g / colors.length),
-      b: Math.round(sum.b / colors.length),
-    };
-  };
-
-  // Simplified GL snapshot without takeSnapshotAsync
-  const captureGLSnapshot = async () => {
-    // Since takeSnapshotAsync is not available, use camera picture instead
-    console.log("GL snapshot not available, using camera picture");
-    return null;
-  };
-
-  // Process camera frame for real-time analysis
-  const processGLSnapshot = async (base64: string) => {
-    // This method is no longer used due to GL limitations
-    console.log("GL snapshot processing skipped");
-  };
-  // Real-time camera color analysis using new extraction approach
+  // Real-time camera color analysis using ColorExtractor
   const analyzeFrameInRealTime = async () => {
     try {
       // Take a picture and process it for color analysis
@@ -551,32 +363,8 @@ export default function ColorAnalyzer({
       });
 
       if (photo) {
-        // Get image dimensions first
-        const imageInfo = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [],
-          {
-            compress: 1,
-            format: ImageManipulator.SaveFormat.PNG,
-          }
-        );
-
-        // Use the center point of the image for real-time analysis
-        const centerX = Math.floor(imageInfo.width / 2);
-        const centerY = Math.floor(imageInfo.height / 2);
-
-        console.log(
-          `Analyzing center pixel at (${centerX}, ${centerY}) of ${imageInfo.width}×${imageInfo.height} image`
-        );
-
-        // Extract color at center using the new accurate method
-        const color = await extractColorAtCoordinates(
-          photo.uri,
-          centerX,
-          centerY,
-          imageInfo.width,
-          imageInfo.height
-        );
+        // Extract color at center using the ColorExtractor utility
+        const color = await ColorExtractor.extractCenterColor(photo.uri);
 
         if (color) {
           const hexColor = rgbToHex(color.r, color.g, color.b);
