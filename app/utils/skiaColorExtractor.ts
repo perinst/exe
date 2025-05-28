@@ -14,8 +14,28 @@ export interface ColorResult {
  */
 export class SkiaColorExtractor {
   private static imageCache = new Map<string, SkImage>();
-  private static pixelCache = new Map<string, Uint8Array | Float32Array>();
+  private static pixelCache = new Map<string, Uint8Array>();
   private static readonly MAX_CACHE_SIZE = 10;
+
+  /**
+   * Convert pixels to Uint8Array for consistent processing
+   * @param pixels - Pixel data from Skia
+   * @returns Uint8Array
+   */
+  private static ensureUint8Array(
+    pixels: Uint8Array | Float32Array
+  ): Uint8Array {
+    if (pixels instanceof Uint8Array) {
+      return pixels;
+    }
+    // Convert Float32Array to Uint8Array
+    const uint8Array = new Uint8Array(pixels.length);
+    for (let i = 0; i < pixels.length; i++) {
+      uint8Array[i] = Math.round(Math.max(0, Math.min(255, pixels[i] * 255)));
+    }
+    return uint8Array;
+  }
+
   /**
    * Load and cache image using Skia with optimized caching
    * @param imageUri - URI of the image
@@ -96,14 +116,15 @@ export class SkiaColorExtractor {
       }
 
       const width = image.width();
-      const height = image.height();
-
-      // Read pixels directly from image - more efficient
-      const pixels = image.readPixels();
-      if (!pixels) {
+      const height = image.height(); // Read pixels directly from image - more efficient
+      const rawPixels = image.readPixels();
+      if (!rawPixels) {
         console.log("SkiaColorExtractor: Failed to read pixels");
         return null;
       }
+
+      // Ensure we have Uint8Array for consistent processing
+      const pixels = this.ensureUint8Array(rawPixels);
 
       // Cache pixels for future use
       this.pixelCache.set(imageUri, pixels);
