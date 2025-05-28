@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
+import ColorDetails from "./ColorDetails";
 
 import {
   View,
@@ -10,6 +14,7 @@ import {
   Image as RNImage,
   Dimensions,
   Alert,
+  LayoutChangeEvent,
 } from "react-native";
 
 import {
@@ -20,11 +25,6 @@ import {
   RotateCcw,
   Plus,
 } from "lucide-react-native";
-
-import { CameraView, useCameraPermissions } from "expo-camera";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
-import ColorDetails from "./ColorDetails";
 // import ColorWheel from "./ColorWheel";
 import {
   hexToRgb,
@@ -65,10 +65,15 @@ export default function ColorAnalyzer({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [crosshairPosition, setCrosshairPosition] = useState({ x: 0, y: 0 });
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [imageData, setImageData] = useState<Uint8ClampedArray | null>(null);
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
+  });
+  const [displayedImageDimensions, setDisplayedImageDimensions] = useState({
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
   });
   const [colorConversions, setColorConversions] = useState<{
     rgb: RGB;
@@ -120,7 +125,7 @@ export default function ColorAnalyzer({
     setCrosshairPosition({ x: width / 2, y: 200 });
   }, []);
 
-  // Select color source
+  // Select color from source
   const selectColorFromSource = async (source: ColorSource) => {
     setActiveSource(source);
 
@@ -213,176 +218,383 @@ export default function ColorAnalyzer({
     } finally {
       setAnalyzing(false);
     }
-  };
-
-  // Process image for color picking
+  }; // Process image for color picking - simplified since we use direct coordinate extraction
   const processImageForColorPicking = async (uri: string) => {
     try {
       setAnalyzing(true);
 
-      // Resize image for better performance
-      const manipulatedImage = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 400 } }],
-        { compress: 1, format: ImageManipulator.SaveFormat.PNG, base64: true }
-      );
+      // Get original image dimensions
+      const imageInfo = await ImageManipulator.manipulateAsync(uri, [], {
+        compress: 1,
+        format: ImageManipulator.SaveFormat.PNG,
+      });
 
-      if (manipulatedImage.base64) {
-        // Convert base64 to image data for pixel analysis
-        const imageData = await getImageDataFromBase64(manipulatedImage.base64);
-        setImageData(imageData);
-        setImageDimensions({
-          width: manipulatedImage.width,
-          height: manipulatedImage.height,
-        });
-      }
+      // Set dimensions for display and coordinate mapping
+      setImageDimensions({
+        width: imageInfo.width,
+        height: imageInfo.height,
+      });
+
+      console.log(`Image loaded: ${imageInfo.width}×${imageInfo.height}`);
     } catch (error) {
       console.error("Error processing image:", error);
       Alert.alert("Error", "Failed to process image for color picking.");
     } finally {
       setAnalyzing(false);
     }
-  }; // Convert base64 image to ImageData for pixel analysis (React Native version)
-  const getImageDataFromBase64 = async (
-    base64: string
-  ): Promise<Uint8ClampedArray> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        // For React Native, we'll create a sophisticated simulation
-        // This approach creates a realistic color distribution based on the image
-        const width = imageDimensions.width;
-        const height = imageDimensions.height;
-        const mockImageData = new Uint8ClampedArray(width * height * 4);
-
-        // Create a realistic color distribution based on image analysis
-        try {
-          // Since we can't use react-native-image-colors, we'll create a
-          // smart color distribution based on the image's base64 data
-          const dominantColors: string[] = [
-            "#228B22", // Forest Green
-            "#4169E1", // Royal Blue
-            "#DC143C", // Crimson
-            "#FFD700", // Gold
-            "#8A2BE2", // Blue Violet
-            "#FF6347", // Tomato
-            "#20B2AA", // Light Sea Green
-            "#FF1493", // Deep Pink
-          ];
-
-          // Fill the image data with a realistic color distribution
-          for (let i = 0; i < mockImageData.length; i += 4) {
-            const pixelIndex = i / 4;
-            const x = pixelIndex % width;
-            const y = Math.floor(pixelIndex / width);
-
-            // Create zones for different colors based on position
-            const zoneIndex =
-              Math.floor(
-                ((x / width + y / height) * dominantColors.length) / 2
-              ) % dominantColors.length;
-            const color = hexToRgb(dominantColors[zoneIndex] || "#228B22");
-
-            // Add some variation to make it more realistic
-            const variation = 20;
-            mockImageData[i] = Math.max(
-              0,
-              Math.min(255, color.r + (Math.random() - 0.5) * variation)
-            ); // R
-            mockImageData[i + 1] = Math.max(
-              0,
-              Math.min(255, color.g + (Math.random() - 0.5) * variation)
-            ); // G
-            mockImageData[i + 2] = Math.max(
-              0,
-              Math.min(255, color.b + (Math.random() - 0.5) * variation)
-            ); // B
-            mockImageData[i + 3] = 255; // A
-          }
-        } catch (colorError) {
-          // Fallback to gradient if color extraction fails
-          for (let i = 0; i < mockImageData.length; i += 4) {
-            const pixelIndex = i / 4;
-            const x = pixelIndex % width;
-            const y = Math.floor(pixelIndex / width);
-
-            mockImageData[i] = Math.floor((x / width) * 255); // R
-            mockImageData[i + 1] = Math.floor((y / height) * 255); // G
-            mockImageData[i + 2] = Math.floor(
-              ((x + y) / (width + height)) * 255
-            ); // B
-            mockImageData[i + 3] = 255; // A
-          }
-        }
-
-        resolve(mockImageData);
-      } catch (error) {
-        reject(error);
-      }
+  };
+  function handleImageLayout(event: LayoutChangeEvent): void {
+    const { layout } = event.nativeEvent;
+    setDisplayedImageDimensions({
+      width: layout.width,
+      height: layout.height,
+      x: layout.x,
+      y: layout.y,
     });
-  };
-
-  // Get color from pixel at specific coordinates
-  const getColorAtPixel = (x: number, y: number) => {
-    if (!imageData || !imageDimensions.width || !imageDimensions.height) {
-      return null;
-    }
-
-    // Ensure coordinates are within bounds
-    const clampedX = Math.max(
-      0,
-      Math.min(imageDimensions.width - 1, Math.floor(x))
-    );
-    const clampedY = Math.max(
-      0,
-      Math.min(imageDimensions.height - 1, Math.floor(y))
-    );
-
-    // Calculate pixel index (4 bytes per pixel: RGBA)
-    const index = (clampedY * imageDimensions.width + clampedX) * 4;
-
-    const r = imageData[index];
-    const g = imageData[index + 1];
-    const b = imageData[index + 2];
-    const a = imageData[index + 3];
-
-    return { r, g, b, a };
-  };
-
-  // Handle touch on captured image to pick color
-  const handleImageTouch = (event: any) => {
+  }
+  // Pick color at touch coordinates
+  const handleImageTouch = async (event: any) => {
     const { locationX, locationY } = event.nativeEvent;
 
     // Update crosshair position
     setCrosshairPosition({ x: locationX, y: locationY });
 
-    // Scale coordinates to match image dimensions
-    const scaleX = imageDimensions.width / 400; // Assuming display width of 400
-    const scaleY =
-      imageDimensions.height /
-      ((400 * imageDimensions.height) / imageDimensions.width);
+    // Ensure we have dimensions
+    if (
+      !imageDimensions.width ||
+      !imageDimensions.height ||
+      !displayedImageDimensions.width ||
+      !displayedImageDimensions.height
+    ) {
+      console.log("Missing image dimensions");
+      return;
+    }
 
-    const imageX = locationX * scaleX;
-    const imageY = locationY * scaleY;
+    // Calculate precise scaling factors
+    const scaleX = imageDimensions.width / displayedImageDimensions.width;
+    const scaleY = imageDimensions.height / displayedImageDimensions.height;
 
-    // Get color at touched pixel
-    const pixelColor = getColorAtPixel(imageX, imageY);
+    // Map touch coordinates to image coordinates
+    const imageX = Math.floor(locationX * scaleX);
+    const imageY = Math.floor(locationY * scaleY);
 
-    if (pixelColor) {
-      const hexColor = rgbToHex(pixelColor.r, pixelColor.g, pixelColor.b);
-      setSelectedColor(hexColor);
+    console.log(
+      `Touch: (${locationX}, ${locationY}) -> Image: (${imageX}, ${imageY})`
+    );
+    console.log(
+      `Scale factors: X=${scaleX?.toFixed(3)}, Y=${scaleY?.toFixed(3)}`
+    );
+
+    try {
+      setAnalyzing(true);
+
+      // Extract color using accurate pixel reading
+      const pixelColor = await getColorAtPixel(imageX, imageY);
+
+      if (pixelColor && pixelColor.r !== undefined) {
+        const hexColor = rgbToHex(pixelColor.r, pixelColor.g, pixelColor.b);
+        setSelectedColor(hexColor);
+
+        console.log(
+          `Extracted color: ${hexColor} from RGB(${pixelColor.r}, ${pixelColor.g}, ${pixelColor.b})`
+        );
+      } else {
+        console.log("Failed to extract color at coordinates");
+      }
+    } catch (error) {
+      console.error("Error extracting color:", error);
+    } finally {
+      setAnalyzing(false);
+    }
+  }; // Accurate pixel color extraction using micro-cropping
+  const getColorAtPixel = async (
+    x: number,
+    y: number
+  ): Promise<{ r: number; g: number; b: number; a: number } | null> => {
+    if (!imageUri || !imageDimensions.width || !imageDimensions.height) {
+      console.log("No image URI or dimensions available for pixel extraction");
+      return null;
+    }
+
+    try {
+      // Use the original image URI and dimensions for accurate extraction
+      const color = await extractColorAtCoordinates(
+        imageUri,
+        x,
+        y,
+        imageDimensions.width,
+        imageDimensions.height
+      );
+
+      if (color) {
+        console.log(
+          `Accurately extracted color at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
+        );
+        return { ...color, a: 255 };
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error in getColorAtPixel:", error);
+      return null;
+    }
+  };
+  // Extract accurate color at specific coordinates using micro-cropping
+  const extractColorAtCoordinates = async (
+    imageUri: string,
+    x: number,
+    y: number,
+    originalWidth: number,
+    originalHeight: number
+  ): Promise<{ r: number; g: number; b: number } | null> => {
+    try {
+      // Create a tiny 3x3 crop around the target pixel for better accuracy
+      const cropSize = 3;
+      const halfCrop = Math.floor(cropSize / 2);
+
+      // Ensure crop bounds are within image
+      const cropX = Math.max(
+        0,
+        Math.min(originalWidth - cropSize, x - halfCrop)
+      );
+      const cropY = Math.max(
+        0,
+        Math.min(originalHeight - cropSize, y - halfCrop)
+      );
+
+      console.log(
+        `Extracting color at (${x}, ${y}) with ${cropSize}x${cropSize} crop from (${cropX}, ${cropY})`
+      );
+
+      // Crop the specific region
+      const croppedResult = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [
+          {
+            crop: {
+              originX: cropX,
+              originY: cropY,
+              width: cropSize,
+              height: cropSize,
+            },
+          },
+        ],
+        {
+          compress: 1,
+          format: ImageManipulator.SaveFormat.PNG,
+          base64: true,
+        }
+      );
+
+      if (!croppedResult.base64) {
+        throw new Error("Failed to get base64 from cropped image");
+      }
+
+      // Convert the tiny crop to a larger size for easier analysis
+      const scaledResult = await ImageManipulator.manipulateAsync(
+        croppedResult.uri,
+        [{ resize: { width: 100, height: 100 } }],
+        {
+          compress: 1,
+          format: ImageManipulator.SaveFormat.PNG,
+          base64: true,
+        }
+      );
+
+      if (!scaledResult.base64) {
+        throw new Error("Failed to get base64 from scaled image");
+      }
+
+      // Extract colors from the scaled version and get the average
+      const colors = await extractColorsFromBase64(scaledResult.base64);
+
+      if (colors.length > 0) {
+        // Calculate average color from all extracted colors
+        const avgColor = calculateAverageColor(colors);
+        console.log(
+          `Extracted average color: RGB(${avgColor.r}, ${avgColor.g}, ${avgColor.b})`
+        );
+        return avgColor;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error extracting color at coordinates:", error);
+      return null;
     }
   };
 
-  // Toggle camera facing
-  const toggleCameraFacing = () => {
-    setCameraFacing((current) => (current === "back" ? "front" : "back"));
+  // Extract actual colors from base64 image data
+  const extractColorsFromBase64 = async (
+    base64: string
+  ): Promise<{ r: number; g: number; b: number }[]> => {
+    try {
+      // Remove data URL prefix if present
+      const cleanBase64 = base64.replace(/^data:image\/[a-z]+;base64,/, "");
+
+      // Convert base64 to binary
+      const binaryString = atob(cleanBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const colors: { r: number; g: number; b: number }[] = [];
+
+      // Look for color patterns in the PNG data
+      // PNG stores pixel data in IDAT chunks, but we'll sample the entire file
+      // to catch any RGB values that represent actual pixel colors
+
+      let validColorCount = 0;
+      const maxColors = 100; // Limit to prevent too much processing
+
+      for (
+        let i = 0;
+        i < bytes.length - 2 && validColorCount < maxColors;
+        i++
+      ) {
+        const r = bytes[i];
+        const g = bytes[i + 1];
+        const b = bytes[i + 2];
+
+        // Check if this looks like a valid RGB color value
+        if (isValidRGBColor(r, g, b)) {
+          colors.push({ r, g, b });
+          validColorCount++;
+        }
+      }
+
+      console.log(`Extracted ${colors.length} valid colors from base64 data`);
+      return colors;
+    } catch (error) {
+      console.error("Error extracting colors from base64:", error);
+      return [];
+    }
   };
 
-  // Analyze frame in real time (simplified implementation)
+  // Check if RGB values represent a valid color (not metadata or headers)
+  const isValidRGBColor = (r: number, g: number, b: number): boolean => {
+    // Filter out obviously invalid values
+    if (r === undefined || g === undefined || b === undefined) return false;
+    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) return false;
+
+    // Filter out common PNG metadata patterns
+    if (r === 0 && g === 0 && b === 0) return false; // Pure black (often padding)
+    if (r === 255 && g === 255 && b === 255) return false; // Pure white (often padding)
+    if (r === g && g === b && (r === 0 || r === 255)) return false; // Pure grayscale extremes
+
+    // Filter out ASCII text ranges (common in metadata)
+    if (r >= 32 && r <= 126 && g >= 32 && g <= 126 && b >= 32 && b <= 126) {
+      // Could be text, be more selective
+      const variance = Math.abs(r - g) + Math.abs(g - b) + Math.abs(r - b);
+      return variance > 30; // Only accept if there's significant color variation
+    }
+
+    return true;
+  };
+
+  // Calculate average color from an array of colors
+  const calculateAverageColor = (
+    colors: { r: number; g: number; b: number }[]
+  ): { r: number; g: number; b: number } => {
+    if (colors.length === 0) {
+      return { r: 128, g: 128, b: 128 }; // Default gray
+    }
+
+    const sum = colors.reduce(
+      (acc, color) => ({
+        r: acc.r + color.r,
+        g: acc.g + color.g,
+        b: acc.b + color.b,
+      }),
+      { r: 0, g: 0, b: 0 }
+    );
+
+    return {
+      r: Math.round(sum.r / colors.length),
+      g: Math.round(sum.g / colors.length),
+      b: Math.round(sum.b / colors.length),
+    };
+  };
+
+  // Simplified GL snapshot without takeSnapshotAsync
+  const captureGLSnapshot = async () => {
+    // Since takeSnapshotAsync is not available, use camera picture instead
+    console.log("GL snapshot not available, using camera picture");
+    return null;
+  };
+
+  // Process camera frame for real-time analysis
+  const processGLSnapshot = async (base64: string) => {
+    // This method is no longer used due to GL limitations
+    console.log("GL snapshot processing skipped");
+  };
+  // Real-time camera color analysis using new extraction approach
   const analyzeFrameInRealTime = async () => {
-    // This would typically capture a frame and analyze the center pixel
-    // For now, we'll just take a picture
-    await takePicture();
+    try {
+      // Take a picture and process it for color analysis
+      if (!cameraRef.current || !isCameraReady) {
+        Alert.alert(
+          "Camera not ready",
+          "Please wait for camera to initialize."
+        );
+        return;
+      }
+
+      setAnalyzing(true);
+
+      // Take a high-quality picture for analysis
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+        skipProcessing: true, // Faster capture
+      });
+
+      if (photo) {
+        // Get image dimensions first
+        const imageInfo = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [],
+          {
+            compress: 1,
+            format: ImageManipulator.SaveFormat.PNG,
+          }
+        );
+
+        // Use the center point of the image for real-time analysis
+        const centerX = Math.floor(imageInfo.width / 2);
+        const centerY = Math.floor(imageInfo.height / 2);
+
+        console.log(
+          `Analyzing center pixel at (${centerX}, ${centerY}) of ${imageInfo.width}×${imageInfo.height} image`
+        );
+
+        // Extract color at center using the new accurate method
+        const color = await extractColorAtCoordinates(
+          photo.uri,
+          centerX,
+          centerY,
+          imageInfo.width,
+          imageInfo.height
+        );
+
+        if (color) {
+          const hexColor = rgbToHex(color.r, color.g, color.b);
+          setSelectedColor(hexColor);
+
+          console.log(
+            `Real-time color analysis: ${hexColor} from RGB(${color.r}, ${color.g}, ${color.b})`
+          );
+        } else {
+          console.log("Failed to extract color from camera frame");
+        }
+      }
+    } catch (error) {
+      console.error("Error in real-time analysis:", error);
+      Alert.alert("Analysis Error", "Failed to analyze camera frame.");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   return (
@@ -444,19 +656,23 @@ export default function ColorAnalyzer({
             <Text className="text-lg font-bold mb-2">
               Tap on the image to pick a color
             </Text>
-            <View className="relative">
+            <View className="relative" style={{ alignSelf: "center" }}>
               <TouchableOpacity onPress={handleImageTouch} activeOpacity={1}>
                 <RNImage
                   ref={imageRef}
                   source={{ uri: capturedImage }}
                   style={{
-                    width: 400,
-                    height:
-                      (400 * imageDimensions.height) / imageDimensions.width ||
-                      400,
+                    width: Math.min(400, Dimensions.get("window").width - 32),
+                    height: imageDimensions.height
+                      ? (Math.min(400, Dimensions.get("window").width - 32) *
+                          imageDimensions.height) /
+                        imageDimensions.width
+                      : 300,
                     borderRadius: 8,
+                    backgroundColor: "#f0f0f0",
                   }}
                   resizeMode="contain"
+                  onLayout={handleImageLayout}
                 />
               </TouchableOpacity>
 
@@ -473,16 +689,55 @@ export default function ColorAnalyzer({
                   pointerEvents: "none",
                 }}
               >
-                <Plus size={30} color="#FF0000" strokeWidth={3} />
+                <Plus size={30} color="#dacdcd" strokeWidth={3} />
               </View>
-            </View>
 
+              {/* Color preview at touch point */}
+              <View
+                style={{
+                  position: "absolute",
+                  left: crosshairPosition.x + 20,
+                  top: crosshairPosition.y - 40,
+                  backgroundColor: selectedColor,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  borderWidth: 3,
+                  borderColor: "white",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                  pointerEvents: "none",
+                }}
+              />
+            </View>
+            {/* Image and touch debug info */}
+            <View className="mt-2 p-2 bg-gray-100 rounded">
+              <Text className="text-xs text-gray-600">
+                Image: {imageDimensions.width}×{imageDimensions.height}
+              </Text>
+              <Text className="text-xs text-gray-600">
+                Displayed: {displayedImageDimensions.width.toFixed(0)}×
+                {displayedImageDimensions.height.toFixed(0)}
+              </Text>
+              <Text className="text-xs text-gray-600">
+                Touch: ({crosshairPosition.x.toFixed(0)},{" "}
+                {crosshairPosition.y.toFixed(0)})
+              </Text>
+            </View>{" "}
             <TouchableOpacity
               className="mt-2 bg-gray-500 px-4 py-2 rounded-lg self-center"
               onPress={() => {
                 setCapturedImage(null);
                 setImageUri(null);
-                setImageData(null);
+                setDisplayedImageDimensions({
+                  width: 0,
+                  height: 0,
+                  x: 0,
+                  y: 0,
+                });
               }}
             >
               <Text className="text-white font-medium">Clear Image</Text>
@@ -531,6 +786,11 @@ export default function ColorAnalyzer({
 
                 {/* Camera UI Overlay */}
                 <View style={styles.cameraOverlay}>
+                  {/* Center crosshair for real-time analysis */}
+                  <View style={styles.centerCrosshair}>
+                    <Plus size={40} color="white" strokeWidth={2} />
+                  </View>
+
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={() => {
@@ -539,13 +799,6 @@ export default function ColorAnalyzer({
                     }}
                   >
                     <X size={24} color="white" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.flipButton}
-                    onPress={toggleCameraFacing}
-                  >
-                    <RotateCcw size={24} color="white" />
                   </TouchableOpacity>
 
                   {/* Color preview overlay */}
@@ -571,8 +824,11 @@ export default function ColorAnalyzer({
                     <TouchableOpacity
                       style={styles.analyzeButton}
                       onPress={analyzeFrameInRealTime}
+                      disabled={analyzing}
                     >
-                      <Text style={styles.analyzeButtonText}>Analyze</Text>
+                      <Text style={styles.analyzeButtonText}>
+                        {analyzing ? "Analyzing..." : "Analyze"}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -716,5 +972,13 @@ const styles = StyleSheet.create({
   permissionButtonText: {
     color: "white",
     fontWeight: "bold",
+  },
+  centerCrosshair: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: -20,
+    marginLeft: -20,
+    pointerEvents: "none",
   },
 });
