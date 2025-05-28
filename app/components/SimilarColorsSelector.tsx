@@ -125,47 +125,7 @@ const SimilarColorsSelector = ({
       });
     }
 
-    // If RYB values are provided, generate RYB-based variations
-    // if (rybValues) {
-    //   // Generate colors by adjusting RYB components
-    //   const rybVariations = generateRYBVariations(rybValues);
-    //   colors.push(...rybVariations);
-    // }
-
     return colors;
-  };
-
-  // Generate RYB-based color variations
-  const generateRYBVariations = (ryb: {
-    r: number;
-    y: number;
-    b: number;
-  }): SimilarColor[] => {
-    const variations: SimilarColor[] = [];
-
-    // Adjust individual RYB components
-    const adjustments = [
-      { name: "More Red", r: Math.min(255, ryb.r + 30), y: ryb.y, b: ryb.b },
-      { name: "More Yellow", r: ryb.r, y: Math.min(255, ryb.y + 30), b: ryb.b },
-      { name: "More Blue", r: ryb.r, y: ryb.y, b: Math.min(255, ryb.b + 30) },
-      { name: "Less Red", r: Math.max(0, ryb.r - 30), y: ryb.y, b: ryb.b },
-      { name: "Less Yellow", r: ryb.r, y: Math.max(0, ryb.y - 30), b: ryb.b },
-      { name: "Less Blue", r: ryb.r, y: ryb.y, b: Math.max(0, ryb.b - 30) },
-    ];
-
-    adjustments.forEach((adj) => {
-      // Convert RYB back to RGB (simplified conversion)
-      const rgb = rybToRgbApprox(adj.r, adj.y, adj.b);
-      const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-
-      variations.push({
-        hex,
-        name: adj.name,
-        brightness: "original",
-      });
-    });
-
-    return variations;
   };
 
   // Simplified RYB to RGB conversion
