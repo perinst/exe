@@ -15,6 +15,7 @@ import {
   Dimensions,
   Alert,
   LayoutChangeEvent,
+  ActivityIndicator,
 } from "react-native";
 
 import {
@@ -553,11 +554,6 @@ export default function ColorAnalyzer({
           <Text className="mt-2 text-lg font-medium">
             {selectedColor.toUpperCase()}
           </Text>
-          {analyzing && (
-            <Text className="mt-2 text-sm text-gray-500">
-              Analyzing image...
-            </Text>
-          )}
         </View>
         {/* Captured Image with Color Picker */}
         {capturedImage && (
@@ -566,7 +562,11 @@ export default function ColorAnalyzer({
               Tap on the image to pick a color
             </Text>
             <View className="relative" style={{ alignSelf: "center" }}>
-              <TouchableOpacity onPress={handleImageTouch} activeOpacity={1}>
+              <TouchableOpacity
+                onPress={handleImageTouch}
+                activeOpacity={1}
+                disabled={analyzing}
+              >
                 <RNImage
                   ref={imageRef}
                   source={{ uri: capturedImage }}
@@ -575,51 +575,78 @@ export default function ColorAnalyzer({
                     height: displayImageDimensions.height,
                     borderRadius: 8,
                     backgroundColor: "#f0f0f0",
+                    opacity: analyzing ? 0.7 : 1,
                   }}
                   resizeMode="contain"
                   onLayout={handleImageLayout}
                 />
               </TouchableOpacity>
 
+              {/* Loading overlay for image analysis */}
+              {analyzing && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.3)",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderRadius: 8,
+                  }}
+                >
+                  <ActivityIndicator size="large" color="#3b82f6" />
+                  <Text className="text-white font-medium mt-2">
+                    Analyzing...
+                  </Text>
+                </View>
+              )}
+
               {/* Crosshair overlay */}
-              <View
-                style={{
-                  position: "absolute",
-                  left: crosshairPosition.x - 25,
-                  top: crosshairPosition.y - 25,
-                  width: 50,
-                  height: 50,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  pointerEvents: "none",
-                }}
-              >
-                <Plus size={30} color="#ece6e6" strokeWidth={3} />
-              </View>
+              {!analyzing && (
+                <View
+                  style={{
+                    position: "absolute",
+                    left: crosshairPosition.x - 25,
+                    top: crosshairPosition.y - 25,
+                    width: 50,
+                    height: 50,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <Plus size={30} color="#ece6e6" strokeWidth={3} />
+                </View>
+              )}
 
               {/* Color preview at touch point */}
-              <View
-                style={{
-                  position: "absolute",
-                  left: Math.min(
-                    crosshairPosition.x + 20,
-                    displayImageDimensions.width - 60
-                  ),
-                  top: Math.max(crosshairPosition.y - 40, 0),
-                  backgroundColor: selectedColor,
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  borderWidth: 3,
-                  borderColor: "white",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  elevation: 5,
-                  pointerEvents: "none",
-                }}
-              />
+              {!analyzing && (
+                <View
+                  style={{
+                    position: "absolute",
+                    left: Math.min(
+                      crosshairPosition.x + 20,
+                      displayImageDimensions.width - 60
+                    ),
+                    top: Math.max(crosshairPosition.y - 40, 0),
+                    backgroundColor: selectedColor,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    borderWidth: 3,
+                    borderColor: "white",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 3.84,
+                    elevation: 5,
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </View>{" "}
             {/* Image and touch debug info */}
             <View className="mt-2 p-2 bg-gray-100 rounded">
@@ -700,10 +727,22 @@ export default function ColorAnalyzer({
 
                 {/* Camera UI Overlay */}
                 <View style={styles.cameraOverlay}>
+                  {/* Loading overlay for camera analysis */}
+                  {analyzing && (
+                    <View style={styles.cameraLoadingOverlay}>
+                      <ActivityIndicator size="large" color="#ffffff" />
+                      <Text style={styles.cameraLoadingText}>
+                        Analyzing camera frame...
+                      </Text>
+                    </View>
+                  )}
+
                   {/* Center crosshair for real-time analysis */}
-                  <View style={styles.centerCrosshair}>
-                    <Plus size={50} color="white" strokeWidth={2} />
-                  </View>
+                  {!analyzing && (
+                    <View style={styles.centerCrosshair}>
+                      <Plus size={50} color="white" strokeWidth={2} />
+                    </View>
+                  )}
 
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -711,32 +750,42 @@ export default function ColorAnalyzer({
                       setShowCamera(false);
                       setActiveSource(null);
                     }}
+                    disabled={analyzing}
                   >
                     <X size={24} color="white" />
                   </TouchableOpacity>
 
                   {/* Color preview overlay */}
-                  <View style={styles.colorPreview}>
-                    <View
-                      style={[
-                        styles.colorSwatch,
-                        { backgroundColor: selectedColor },
-                      ]}
-                    />
-                    <Text style={styles.colorText}>
-                      {selectedColor.toUpperCase()}
-                    </Text>
-                  </View>
+                  {!analyzing && (
+                    <View style={styles.colorPreview}>
+                      <View
+                        style={[
+                          styles.colorSwatch,
+                          { backgroundColor: selectedColor },
+                        ]}
+                      />
+                      <Text style={styles.colorText}>
+                        {selectedColor.toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.cameraControls}>
                     <TouchableOpacity
-                      style={styles.captureButton}
+                      style={[
+                        styles.captureButton,
+                        { opacity: analyzing ? 0.5 : 1 },
+                      ]}
                       onPress={takePicture}
+                      disabled={analyzing}
                     >
                       <View style={styles.captureButtonInner} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.analyzeButton}
+                      style={[
+                        styles.analyzeButton,
+                        { opacity: analyzing ? 0.5 : 1 },
+                      ]}
                       onPress={analyzeFrameInRealTime}
                       disabled={analyzing}
                     >
@@ -894,5 +943,23 @@ const styles = StyleSheet.create({
     marginTop: -20,
     marginLeft: -20,
     pointerEvents: "none",
+  },
+  cameraLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  cameraLoadingText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginTop: 10,
+    textAlign: "center",
   },
 });
