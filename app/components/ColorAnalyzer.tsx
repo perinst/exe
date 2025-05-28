@@ -42,7 +42,8 @@ import {
   type Lab,
   type RYB,
 } from "../utils/convert";
-import { ColorExtractor, type ColorResult } from "../utils/colorExtractor";
+
+import { SkiaColorExtractor } from "../utils/skiaColorExtractor";
 
 type ColorSource = "camera" | "gallery" | "picker";
 
@@ -50,12 +51,13 @@ interface ColorAnalyzerProps {
   onSaveColor?: (color: string) => void;
   onAddToPalette?: (color: string) => void;
 }
+const DEFAULT_COLOR = "#91E3A5";
 
 export default function ColorAnalyzer({
   onSaveColor = () => {},
   onAddToPalette = () => {},
 }: ColorAnalyzerProps) {
-  const [selectedColor, setSelectedColor] = useState<string>("#3B82F6");
+  const [selectedColor, setSelectedColor] = useState<string>("#91E3A5");
   const [activeSource, setActiveSource] = useState<ColorSource | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -65,15 +67,19 @@ export default function ColorAnalyzer({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [crosshairPosition, setCrosshairPosition] = useState({ x: 0, y: 0 });
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [imageDimensions, setImageDimensions] = useState({
+  const [originalImageDimensions, setOriginalImageDimensions] = useState({
     width: 0,
     height: 0,
   });
-  const [displayedImageDimensions, setDisplayedImageDimensions] = useState({
+  const [displayImageDimensions, setDisplayImageDimensions] = useState({
     width: 0,
     height: 0,
+  });
+  const [imageViewLayout, setImageViewLayout] = useState({
     x: 0,
     y: 0,
+    width: 0,
+    height: 0,
   });
   const [colorConversions, setColorConversions] = useState<{
     rgb: RGB;
@@ -118,11 +124,17 @@ export default function ColorAnalyzer({
       });
     }
   }, [selectedColor]);
-
   // Initialize crosshair position to center
   useEffect(() => {
     const { width } = Dimensions.get("window");
     setCrosshairPosition({ x: width / 2, y: 200 });
+  }, []);
+
+  // Cleanup Skia image cache when component unmounts
+  useEffect(() => {
+    return () => {
+      SkiaColorExtractor.clearCache();
+    };
   }, []);
 
   // Select color from source
@@ -219,24 +231,42 @@ export default function ColorAnalyzer({
       setAnalyzing(false);
     }
   };
-  // Process image for color picking - simplified since we use direct coordinate extraction
+  // Process image for color picking using Skia
   const processImageForColorPicking = async (uri: string) => {
     try {
       setAnalyzing(true);
 
-      // Get original image dimensions
-      const imageInfo = await ImageManipulator.manipulateAsync(uri, [], {
-        compress: 1,
-        format: ImageManipulator.SaveFormat.PNG,
+      // Get original image dimensions using Skia
+      const imageDimensions = await SkiaColorExtractor.getImageDimensions(uri);
+
+      if (!imageDimensions) {
+        throw new Error("Failed to get image dimensions using Skia");
+      }
+
+      // Store original dimensions
+      setOriginalImageDimensions({
+        width: imageDimensions.width,
+        height: imageDimensions.height,
       });
 
-      // Set dimensions for display and coordinate mapping
-      setImageDimensions({
-        width: imageInfo.width,
-        height: imageInfo.height,
+      // Calculate display dimensions while maintaining aspect ratio
+      const maxDisplayWidth = Math.min(
+        400,
+        Dimensions.get("window").width - 32
+      );
+      const aspectRatio = imageDimensions.height / imageDimensions.width;
+      const displayWidth = maxDisplayWidth;
+      const displayHeight = displayWidth * aspectRatio;
+
+      setDisplayImageDimensions({
+        width: displayWidth,
+        height: displayHeight,
       });
 
-      console.log(`Image loaded: ${imageInfo.width}×${imageInfo.height}`);
+      console.log(
+        `Original image: ${imageDimensions.width}×${imageDimensions.height}`
+      );
+      console.log(`Display size: ${displayWidth}×${displayHeight}`);
     } catch (error) {
       console.error("Error processing image:", error);
       Alert.alert("Error", "Failed to process image for color picking.");
@@ -244,60 +274,130 @@ export default function ColorAnalyzer({
       setAnalyzing(false);
     }
   };
+
+  //Handle image layout with proper bounds tracking
   function handleImageLayout(event: LayoutChangeEvent): void {
     const { layout } = event.nativeEvent;
-    setDisplayedImageDimensions({
-      width: layout.width,
-      height: layout.height,
+    setImageViewLayout({
       x: layout.x,
       y: layout.y,
+      width: layout.width,
+      height: layout.height,
     });
+
+    console.log(
+      `Image view layout: ${layout.width}×${layout.height} at (${layout.x}, ${layout.y})`
+    );
   }
-  // Pick color at touch coordinates
+
+  // Handle image touch with accurate coordinate mapping
   const handleImageTouch = async (event: any) => {
     const { locationX, locationY } = event.nativeEvent;
 
-    // Update crosshair position
+    // Update crosshair position (relative to the image view)
     setCrosshairPosition({ x: locationX, y: locationY });
 
-    // Ensure we have dimensions
+    // Validate we have all required dimensions
     if (
-      !imageDimensions.width ||
-      !imageDimensions.height ||
-      !displayedImageDimensions.width ||
-      !displayedImageDimensions.height
+      !originalImageDimensions.width ||
+      !originalImageDimensions.height ||
+      !imageViewLayout.width ||
+      !imageViewLayout.height
     ) {
-      console.log("Missing image dimensions");
+      console.log("Missing required dimensions for coordinate mapping");
       return;
     }
 
-    // Calculate precise scaling factors
-    const scaleX = imageDimensions.width / displayedImageDimensions.width;
-    const scaleY = imageDimensions.height / displayedImageDimensions.height;
+    // Calculate accurate scaling factors
+    // The image is displayed with "contain" resize mode, so we need to account for letterboxing
+    const imageAspectRatio =
+      originalImageDimensions.width / originalImageDimensions.height;
+    const viewAspectRatio = imageViewLayout.width / imageViewLayout.height;
+
+    let actualImageWidth, actualImageHeight, offsetX, offsetY;
+
+    if (imageAspectRatio > viewAspectRatio) {
+      // Image is wider relative to view - letterboxed top/bottom
+      actualImageWidth = imageViewLayout.width;
+      actualImageHeight = imageViewLayout.width / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (imageViewLayout.height - actualImageHeight) / 2;
+    } else {
+      // Image is taller relative to view - letterboxed left/right
+      actualImageWidth = imageViewLayout.height * imageAspectRatio;
+      actualImageHeight = imageViewLayout.height;
+      offsetX = (imageViewLayout.width - actualImageWidth) / 2;
+      offsetY = 0;
+    }
+
+    // Check if touch is within the actual image bounds
+    if (
+      locationX < offsetX ||
+      locationX > offsetX + actualImageWidth ||
+      locationY < offsetY ||
+      locationY > offsetY + actualImageHeight
+    ) {
+      console.log("Touch outside image bounds");
+      return;
+    }
 
     // Map touch coordinates to image coordinates
-    const imageX = Math.floor(locationX * scaleX);
-    const imageY = Math.floor(locationY * scaleY);
+    const relativeX = locationX - offsetX;
+    const relativeY = locationY - offsetY;
+
+    const scaleX = originalImageDimensions.width / actualImageWidth;
+    const scaleY = originalImageDimensions.height / actualImageHeight;
+
+    const imageX = Math.floor(relativeX * scaleX);
+    const imageY = Math.floor(relativeY * scaleY);
+
+    // Clamp coordinates to image bounds
+    const clampedX = Math.max(
+      0,
+      Math.min(imageX, originalImageDimensions.width - 1)
+    );
+    const clampedY = Math.max(
+      0,
+      Math.min(imageY, originalImageDimensions.height - 1)
+    );
 
     console.log(
-      `Touch: (${locationX}, ${locationY}) -> Image: (${imageX}, ${imageY})`
+      `Touch: (${locationX.toFixed(1)}, ${locationY.toFixed(1)}) -> ` +
+        `Relative: (${relativeX.toFixed(1)}, ${relativeY.toFixed(1)}) -> ` +
+        `Image: (${clampedX}, ${clampedY})`
     );
     console.log(
-      `Scale factors: X=${scaleX?.toFixed(3)}, Y=${scaleY?.toFixed(3)}`
+      `Scale factors: X=${scaleX.toFixed(3)}, Y=${scaleY.toFixed(3)}`
     );
-
     try {
       setAnalyzing(true);
 
-      // Extract color using accurate pixel reading
-      const pixelColor = await getColorAtPixel(imageX, imageY);
+      // Extract color using accurate pixel reading with region averaging for better results
+      const pixelColor = await getColorAtPixel(clampedX, clampedY);
+      // Also try to get average color from a small region for more stable results
+      let regionColor = null;
+      if (imageUri) {
+        regionColor = await SkiaColorExtractor.extractRegionAverageColor(
+          imageUri,
+          clampedX,
+          clampedY,
+          2 // 2-pixel radius for sampling
+        );
+      }
 
-      if (pixelColor && pixelColor.r !== undefined) {
-        const hexColor = rgbToHex(pixelColor.r, pixelColor.g, pixelColor.b);
+      // Use region color if available, otherwise fall back to pixel color
+      const finalColor = regionColor || pixelColor;
+
+      if (finalColor && finalColor.r !== undefined) {
+        const hexColor = rgbToHex(finalColor.r, finalColor.g, finalColor.b);
         setSelectedColor(hexColor);
 
         console.log(
-          `Extracted color: ${hexColor} from RGB(${pixelColor.r}, ${pixelColor.g}, ${pixelColor.b})`
+          `Extracted color: ${hexColor} from RGB(${finalColor.r}, ${
+            finalColor.g
+          }, ${finalColor.b}) using ${
+            regionColor ? "region averaging" : "pixel sampling"
+          }`
         );
       } else {
         console.log("Failed to extract color at coordinates");
@@ -308,28 +408,42 @@ export default function ColorAnalyzer({
       setAnalyzing(false);
     }
   };
-
-  // Accurate pixel color extraction using ColorExtractor utility
+  //Accurate pixel color extraction using Skia
   const getColorAtPixel = async (
     x: number,
     y: number
   ): Promise<{ r: number; g: number; b: number; a: number } | null> => {
-    if (!imageUri || !imageDimensions.width || !imageDimensions.height) {
+    if (
+      !imageUri ||
+      !originalImageDimensions.width ||
+      !originalImageDimensions.height
+    ) {
       console.log("No image URI or dimensions available for pixel extraction");
       return null;
     }
 
+    // Validate coordinates
+    if (
+      x < 0 ||
+      x >= originalImageDimensions.width ||
+      y < 0 ||
+      y >= originalImageDimensions.height
+    ) {
+      console.log(`Coordinates out of bounds: (${x}, ${y})`);
+      return null;
+    }
     try {
-      const color = await ColorExtractor.getColorAtPixel(
-        imageUri,
-        x,
-        y,
-        imageDimensions
-      );
+      // Use Skia-based color extraction for better accuracy and performance
+      if (!imageUri) {
+        console.log("No image URI available for Skia extraction");
+        return null;
+      }
+
+      const color = await SkiaColorExtractor.getColorAtPixel(imageUri, x, y);
 
       if (color) {
         console.log(
-          `Accurately extracted color at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
+          `SkiaColorExtractor result at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
         );
         return { ...color, a: color.a || 255 };
       }
@@ -340,11 +454,8 @@ export default function ColorAnalyzer({
       return null;
     }
   };
-
-  // Real-time camera color analysis using ColorExtractor
   const analyzeFrameInRealTime = async () => {
     try {
-      // Take a picture and process it for color analysis
       if (!cameraRef.current || !isCameraReady) {
         Alert.alert(
           "Camera not ready",
@@ -355,26 +466,36 @@ export default function ColorAnalyzer({
 
       setAnalyzing(true);
 
-      // Take a high-quality picture for analysis
+      // Take a picture for analysis
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
-        skipProcessing: true, // Faster capture
+        skipProcessing: false, // Keep processing for better quality
       });
 
       if (photo) {
-        // Extract color at center using the ColorExtractor utility
-        const color = await ColorExtractor.extractCenterColor(photo.uri);
+        // Get image dimensions using Skia
+        const imageDimensions = await SkiaColorExtractor.getImageDimensions(
+          photo.uri
+        );
+
+        if (!imageDimensions) {
+          console.log("Failed to get image dimensions using Skia");
+          return;
+        }
+
+        // Extract color at center of the image using Skia
+        const color = await SkiaColorExtractor.extractCenterColor(photo.uri);
 
         if (color) {
           const hexColor = rgbToHex(color.r, color.g, color.b);
           setSelectedColor(hexColor);
 
           console.log(
-            `Real-time color analysis: ${hexColor} from RGB(${color.r}, ${color.g}, ${color.b})`
+            `Real-time Skia analysis at center: ${hexColor} from RGB(${color.r}, ${color.g}, ${color.b})`
           );
         } else {
-          console.log("Failed to extract color from camera frame");
+          console.log("Failed to extract color from camera frame using Skia");
         }
       }
     } catch (error) {
@@ -424,10 +545,10 @@ export default function ColorAnalyzer({
           </TouchableOpacity>
         </View>{" "}
         {/* Color Preview */}
-        <View className="items-center mb-6">
+        <View className="items-center mb-2">
           <View
             style={{ backgroundColor: selectedColor }}
-            className="w-32 h-32 rounded-full shadow-md"
+            className="w-16 h-16 rounded-full shadow-md"
           />
           <Text className="mt-2 text-lg font-medium">
             {selectedColor.toUpperCase()}
@@ -450,12 +571,8 @@ export default function ColorAnalyzer({
                   ref={imageRef}
                   source={{ uri: capturedImage }}
                   style={{
-                    width: Math.min(400, Dimensions.get("window").width - 32),
-                    height: imageDimensions.height
-                      ? (Math.min(400, Dimensions.get("window").width - 32) *
-                          imageDimensions.height) /
-                        imageDimensions.width
-                      : 300,
+                    width: displayImageDimensions.width,
+                    height: displayImageDimensions.height,
                     borderRadius: 8,
                     backgroundColor: "#f0f0f0",
                   }}
@@ -470,22 +587,25 @@ export default function ColorAnalyzer({
                   position: "absolute",
                   left: crosshairPosition.x - 15,
                   top: crosshairPosition.y - 15,
-                  width: 30,
-                  height: 30,
+                  width: 50,
+                  height: 50,
                   justifyContent: "center",
                   alignItems: "center",
                   pointerEvents: "none",
                 }}
               >
-                <Plus size={30} color="#dacdcd" strokeWidth={3} />
+                <Plus size={30} color="#ece6e6" strokeWidth={3} />
               </View>
 
               {/* Color preview at touch point */}
               <View
                 style={{
                   position: "absolute",
-                  left: crosshairPosition.x + 20,
-                  top: crosshairPosition.y - 40,
+                  left: Math.min(
+                    crosshairPosition.x + 20,
+                    displayImageDimensions.width - 60
+                  ),
+                  top: Math.max(crosshairPosition.y - 40, 0),
                   backgroundColor: selectedColor,
                   width: 40,
                   height: 40,
@@ -500,39 +620,59 @@ export default function ColorAnalyzer({
                   pointerEvents: "none",
                 }}
               />
-            </View>
+            </View>{" "}
             {/* Image and touch debug info */}
             <View className="mt-2 p-2 bg-gray-100 rounded">
               <Text className="text-xs text-gray-600">
-                Image: {imageDimensions.width}×{imageDimensions.height}
+                Original: {originalImageDimensions.width}×
+                {originalImageDimensions.height}
               </Text>
               <Text className="text-xs text-gray-600">
-                Displayed: {displayedImageDimensions.width.toFixed(0)}×
-                {displayedImageDimensions.height.toFixed(0)}
+                Display: {displayImageDimensions.width.toFixed(0)}×
+                {displayImageDimensions.height.toFixed(0)}
+              </Text>
+              <Text className="text-xs text-gray-600">
+                View Layout: {imageViewLayout.width.toFixed(0)}×
+                {imageViewLayout.height.toFixed(0)}
               </Text>
               <Text className="text-xs text-gray-600">
                 Touch: ({crosshairPosition.x.toFixed(0)},{" "}
                 {crosshairPosition.y.toFixed(0)})
               </Text>
+              <Text className="text-xs text-gray-600">
+                Selected: {selectedColor} | RGB({colorConversions?.rgb.r},{" "}
+                {colorConversions?.rgb.g}, {colorConversions?.rgb.b})
+              </Text>
             </View>{" "}
-            <TouchableOpacity
-              className="mt-2 bg-gray-500 px-4 py-2 rounded-lg self-center"
-              onPress={() => {
-                setCapturedImage(null);
-                setImageUri(null);
-                setDisplayedImageDimensions({
-                  width: 0,
-                  height: 0,
-                  x: 0,
-                  y: 0,
-                });
-              }}
-            >
-              <Text className="text-white font-medium">Clear Image</Text>
-            </TouchableOpacity>
+            <View className="flex-row justify-center space-x-2 mt-2">
+              <TouchableOpacity
+                className="bg-gray-500 px-4 py-2 rounded-lg"
+                onPress={() => {
+                  setCapturedImage(null);
+                  setImageUri(null);
+                  setOriginalImageDimensions({ width: 0, height: 0 });
+                  setDisplayImageDimensions({ width: 0, height: 0 });
+                  setImageViewLayout({ x: 0, y: 0, width: 0, height: 0 });
+                }}
+              >
+                <Text className="text-white font-medium">Clear Image</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="bg-blue-500 px-4 py-2 rounded-lg"
+                onPress={() => {
+                  SkiaColorExtractor.clearCache();
+                  Alert.alert(
+                    "Cache Cleared",
+                    "Skia image cache has been cleared."
+                  );
+                }}
+              >
+                <Text className="text-white font-medium">Clear Cache</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
-        {/* Color Conversions Display */}
         {/* Color Details Component */}
         <View className="mb-6">
           <ColorDetails
@@ -543,7 +683,6 @@ export default function ColorAnalyzer({
             rybValues={colorConversions?.ryb}
           />
         </View>
-        {/* Color Wheel Component */}
         {/* Action Buttons */}
         <View className="flex-row justify-around mt-4 mb-8">
           <TouchableOpacity
@@ -576,7 +715,7 @@ export default function ColorAnalyzer({
                 <View style={styles.cameraOverlay}>
                   {/* Center crosshair for real-time analysis */}
                   <View style={styles.centerCrosshair}>
-                    <Plus size={40} color="white" strokeWidth={2} />
+                    <Plus size={50} color="white" strokeWidth={2} />
                   </View>
 
                   <TouchableOpacity
