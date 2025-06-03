@@ -4,18 +4,23 @@
     "slug": "palette",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-palette.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pernist.palette",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon-palette.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.pernist.palette"
     },
     "web": {
       "bundler": "metro",
@@ -40,8 +45,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a4309339-0c8f-41b9-a091-9c42fd865bc7"
+        "projectId": "edccffb0-237c-4984-a216-ac672e5bf7bb"
       }
-    }
+    },
+    "owner": "pernist"
   }
 }
