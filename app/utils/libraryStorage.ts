@@ -16,14 +16,19 @@ export class LibraryStorage {
   private static async getLibraryData(): Promise<LibraryData> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.LIBRARY_DATA);
+      console.log("LibraryStorage: Raw data from AsyncStorage:", data);
+
       if (data) {
-        return JSON.parse(data);
+        const parsedData = JSON.parse(data);
+        console.log("LibraryStorage: Parsed data:", parsedData);
+        return parsedData;
       }
     } catch (error) {
       console.error("Error loading library data:", error);
     }
 
     // Return default structure with a default package
+    console.log("LibraryStorage: Creating default package structure");
     const defaultPackage: ColorPackage = {
       id: "default",
       name: DEFAULT_PACKAGE_NAME,
@@ -33,10 +38,22 @@ export class LibraryStorage {
       isDefault: true,
     };
 
-    return {
+    const defaultData = {
       packages: [defaultPackage],
       defaultPackageId: "default",
     };
+
+    console.log("LibraryStorage: Default data created:", defaultData);
+
+    // Save the default data to AsyncStorage for future use
+    try {
+      await this.saveLibraryData(defaultData);
+      console.log("LibraryStorage: Default data saved to AsyncStorage");
+    } catch (error) {
+      console.error("LibraryStorage: Error saving default data:", error);
+    }
+
+    return defaultData;
   }
 
   private static async saveLibraryData(data: LibraryData): Promise<void> {
@@ -50,9 +67,11 @@ export class LibraryStorage {
       throw error;
     }
   }
-
   static async getAllPackages(): Promise<ColorPackage[]> {
+    console.log("LibraryStorage: getAllPackages called");
     const data = await this.getLibraryData();
+    console.log("LibraryStorage: getAllPackages data:", data);
+    console.log("LibraryStorage: getAllPackages packages:", data.packages);
     return data.packages;
   }
 

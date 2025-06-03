@@ -11,14 +11,18 @@ import { Palette, Camera, BookOpen, Archive } from "lucide-react-native";
 import ColorAnalyzer from "./components/ColorAnalyzer";
 import PaletteGenerator from "./components/PaletteGenerator";
 import ColorLibrary from "./components/ColorLibrary";
+import LibraryPackageSelector from "./components/LibraryPackageSelector";
 import { LibraryProvider, useLibrary } from "./context/LibraryContext";
+import { usePackageSelection } from "./hooks/usePackageSelection";
 
 type Tab = "analyzer" | "palette" | "library" | "psychology";
 
 export default function HomeScreen() {
   return (
     <LibraryProvider>
-      <HomeScreenContent />
+      <LibraryPackageSelector>
+        <HomeScreenContent />
+      </LibraryPackageSelector>
     </LibraryProvider>
   );
 }
@@ -26,13 +30,21 @@ export default function HomeScreen() {
 function HomeScreenContent() {
   const [activeTab, setActiveTab] = useState<Tab>("analyzer");
   const { saveColor, savePalette } = useLibrary();
+  const { saveColorWithPackageSelection, savePaletteWithPackageSelection } =
+    usePackageSelection();
+
+  // Test function to trigger package selector
+  const testPackageSelector = () => {
+    console.log("Test button clicked - triggering package selector");
+    saveColorWithPackageSelection("#FF0000", "Test Red Color", "picker");
+  };
 
   const handleSaveColor = (color: string) => {
-    saveColor(color, undefined, "picker");
+    saveColorWithPackageSelection(color, undefined, "picker");
   };
 
   const handleAddToPalette = (color: string) => {
-    saveColor(color, undefined, "picker");
+    saveColorWithPackageSelection(color, undefined, "picker");
   };
 
   const handleSavePalette = (palette: {
@@ -40,7 +52,7 @@ function HomeScreenContent() {
     colors: string[];
     scheme?: string;
   }) => {
-    savePalette(palette);
+    savePaletteWithPackageSelection(palette);
   };
   const renderContent = () => {
     switch (activeTab) {
