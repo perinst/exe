@@ -43,9 +43,9 @@ export class ColorExtractor {
         Math.min(originalHeight - cropSize, y - halfCrop)
       );
 
-      console.log(
-        `ColorExtractor: Extracting color at (${x}, ${y}) with ${cropSize}x${cropSize} crop from (${cropX}, ${cropY})`
-      );
+      // console.log(
+      //   `ColorExtractor: Extracting color at (${x}, ${y}) with ${cropSize}x${cropSize} crop from (${cropX}, ${cropY})`
+      // );
 
       // Crop the specific region
       const croppedResult = await ImageManipulator.manipulateAsync(
@@ -92,9 +92,7 @@ export class ColorExtractor {
       if (colors.length > 0) {
         // Calculate average color from all extracted colors
         const avgColor = this.calculateAverageColor(colors);
-        console.log(
-          `ColorExtractor: Extracted average color: RGB(${avgColor.r}, ${avgColor.g}, ${avgColor.b})`
-        );
+
         return avgColor;
       }
 
@@ -150,9 +148,6 @@ export class ColorExtractor {
         }
       }
 
-      console.log(
-        `ColorExtractor: Extracted ${colors.length} valid colors from base64 data`
-      );
       return colors;
     } catch (error) {
       console.error(
@@ -231,9 +226,6 @@ export class ColorExtractor {
     imageDimensions: { width: number; height: number }
   ): Promise<ColorResult | null> {
     if (!imageUri || !imageDimensions.width || !imageDimensions.height) {
-      console.log(
-        "ColorExtractor: No image URI or dimensions available for pixel extraction"
-      );
       return null;
     }
 
@@ -248,9 +240,6 @@ export class ColorExtractor {
       );
 
       if (color) {
-        console.log(
-          `ColorExtractor: Accurately extracted color at (${x}, ${y}): RGB(${color.r}, ${color.g}, ${color.b})`
-        );
         return { ...color, a: 255 };
       }
 
@@ -280,9 +269,9 @@ export class ColorExtractor {
       const centerX = Math.floor(imageInfo.width / 2);
       const centerY = Math.floor(imageInfo.height / 2);
 
-      console.log(
-        `ColorExtractor: Analyzing center pixel at (${centerX}, ${centerY}) of ${imageInfo.width}×${imageInfo.height} image`
-      );
+      // console.log(
+      //   `ColorExtractor: Analyzing center pixel at (${centerX}, ${centerY}) of ${imageInfo.width}×${imageInfo.height} image`
+      // );
 
       // Extract color at center using the coordinate extraction method
       const color = await this.extractColorAtCoordinates(
@@ -294,9 +283,9 @@ export class ColorExtractor {
       );
 
       if (color) {
-        console.log(
-          `ColorExtractor: Center color extracted: RGB(${color.r}, ${color.g}, ${color.b})`
-        );
+        // console.log(
+        //   `ColorExtractor: Center color extracted: RGB(${color.r}, ${color.g}, ${color.b})`
+        // );
         return color;
       }
 

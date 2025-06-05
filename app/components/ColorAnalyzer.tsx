@@ -60,7 +60,7 @@ export default function ColorAnalyzer({
   onSaveColor = () => {},
   onAddToPalette = () => {},
 }: ColorAnalyzerProps) {
-  const [selectedColor, setSelectedColor] = useState<string>("#91E3A5");
+  const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedColorName, setSelectedColorName] = useState<string>("");
   const [activeSource, setActiveSource] = useState<ColorSource | null>(null);
   const [showCamera, setShowCamera] = useState(false);
@@ -269,11 +269,6 @@ export default function ColorAnalyzer({
         width: displayWidth,
         height: displayHeight,
       });
-
-      console.log(
-        `Original image: ${imageDimensions.width}×${imageDimensions.height}`
-      );
-      console.log(`Display size: ${displayWidth}×${displayHeight}`);
     } catch (error) {
       console.error("Error processing image:", error);
       Alert.alert("Error", "Failed to process image for color picking.");
@@ -291,10 +286,6 @@ export default function ColorAnalyzer({
       width: layout.width,
       height: layout.height,
     });
-
-    console.log(
-      `Image view layout: ${layout.width}×${layout.height} at (${layout.x}, ${layout.y})`
-    );
   }
 
   // Handle image touch with accurate coordinate mapping
@@ -512,6 +503,46 @@ export default function ColorAnalyzer({
       setAnalyzing(false);
     }
   };
+  if ((!selectedColor || selectedColor === "") && !activeSource) {
+    return (
+      <View className="flex-1 bg-white px-8 mt-16">
+        {/* Centered Camera Button */}
+        <View className="flex-1 items-center justify-center">
+          <TouchableOpacity
+            className="items-center justify-center w-32 h-32 rounded-full bg-blue-50 border-4 border-blue-200 shadow-lg active:bg-blue-100 active:scale-95"
+            onPress={() => selectColorFromSource("camera")}
+            style={{
+              shadowColor: "#3B82F6",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <CameraIcon size={48} color="#3B82F6" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Instructions */}
+        <View className="items-center mt-8 px-4">
+          <Text className="text-xl font-semibold text-gray-800 text-center mb-2">
+            Color Extractor
+          </Text>
+          <Text className="text-base text-gray-600 text-center leading-6">
+            Touch the camera icon to start{"\n"}extracting colors from your
+            environment
+          </Text>
+        </View>
+
+        {/* Additional hint */}
+        <View className="items-center mt-6 mb-4 px-6 py-3 bg-blue-50 rounded-lg">
+          <Text className="text-sm text-blue-700 text-center">
+            💡 Point your camera at any object to capture its color
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScrollView className="flex-1 bg-white">
@@ -558,7 +589,7 @@ export default function ColorAnalyzer({
             className="w-16 h-16 rounded-full shadow-md"
           />
           <Text className="mt-2 text-lg font-medium">
-            {selectedColor.toUpperCase()}
+            {selectedColor?.toUpperCase()}
           </Text>
         </View>
         {/* Captured Image with Color Picker */}
@@ -668,10 +699,6 @@ export default function ColorAnalyzer({
                 View Layout: {imageViewLayout.width.toFixed(0)}×
                 {imageViewLayout.height.toFixed(0)}
               </Text>
-              <Text className="text-xs text-gray-600">
-                Touch: ({crosshairPosition.x.toFixed(0)},{" "}
-                {crosshairPosition.y.toFixed(0)})
-              </Text>
             </View>{" "}
             <View className="flex-row justify-center space-x-2 mt-2">
               <TouchableOpacity
@@ -708,12 +735,12 @@ export default function ColorAnalyzer({
             <Text className="text-white font-medium">Save Color</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             className="bg-purple-500 px-6 py-3 rounded-lg"
             onPress={() => onAddToPalette(selectedColor)}
           >
             <Text className="text-white font-medium">Add to Palette</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>{" "}
         {/* Camera Modal */}
         <Modal visible={showCamera} animationType="slide">
