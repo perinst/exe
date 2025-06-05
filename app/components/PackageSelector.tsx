@@ -88,16 +88,6 @@ const PackageSelector: React.FC<PackageSelectorProps> = ({
       </Modal>
     );
 
-  if (saving) {
-    return (
-      <Modal visible={true}>
-        <View className="py-8 items-center">
-          <Text className="text-gray-500">Saving package...</Text>
-        </View>
-      </Modal>
-    );
-  }
-
   return (
     <Modal
       visible={visible}
@@ -176,17 +166,19 @@ const PackageSelector: React.FC<PackageSelectorProps> = ({
             <View className="flex-row space-x-3">
               <TouchableOpacity
                 className={`flex-1 rounded-lg py-3 ${
-                  selectedPackageId ? "bg-blue-500" : "bg-gray-300"
+                  selectedPackageId && !saving ? "bg-blue-500" : "bg-gray-300"
                 }`}
                 onPress={handleSelectPackage}
-                disabled={!selectedPackageId}
+                disabled={!selectedPackageId || saving}
               >
                 <Text
                   className={`text-center font-medium ${
-                    selectedPackageId ? "text-white" : "text-gray-500"
+                    selectedPackageId && !saving
+                      ? "text-white"
+                      : "text-gray-500"
                   }`}
                 >
-                  Save
+                  {saving ? "Saving..." : "Save"}
                 </Text>
               </TouchableOpacity>
             </View>

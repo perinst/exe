@@ -34,6 +34,8 @@ interface LibraryContextType {
   getAllPackages: () => Promise<ColorPackage[]>;
   showPackageSelector?: boolean;
   setShowPackageSelector?: (show: boolean) => void;
+  selectionType?: "color" | "palette" | null;
+  setSelectionType?: (type: "color" | "palette" | null) => void;
   pendingColorSave?: {
     color: string;
     name?: string;
@@ -80,6 +82,9 @@ export const LibraryProvider: React.FC<LibraryProviderProps> = ({
   children,
 }) => {
   const [showPackageSelector, setShowPackageSelector] = useState(false);
+  const [selectionType, setSelectionType] = useState<
+    "color" | "palette" | null
+  >(null);
   const [pendingColorSave, setPendingColorSave] = useState<{
     color: string;
     name?: string;
@@ -126,12 +131,12 @@ export const LibraryProvider: React.FC<LibraryProviderProps> = ({
       source?: "camera" | "gallery" | "picker"
     ) => {
       try {
-        console.log("LibraryContext: saveColorToPackage called with:", {
-          color,
-          packageId,
-          name,
-          source,
-        });
+        // console.log("LibraryContext: saveColorToPackage called with:", {
+        //   color,
+        //   packageId,
+        //   name,
+        //   source,
+        // });
 
         const savedColor: SavedColor = {
           id: `color_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -141,11 +146,8 @@ export const LibraryProvider: React.FC<LibraryProviderProps> = ({
           source: source,
         };
 
-        console.log("LibraryContext: Saving color to package:", savedColor);
-
         await LibraryStorage.saveColor(savedColor, packageId);
 
-        console.log("LibraryContext: Color saved successfully");
         Alert.alert(
           "Color Saved",
           `Color ${color} has been saved to your library!`
@@ -250,6 +252,8 @@ export const LibraryProvider: React.FC<LibraryProviderProps> = ({
     getAllPackages,
     showPackageSelector,
     setShowPackageSelector,
+    selectionType,
+    setSelectionType,
     pendingColorSave,
     setPendingColorSave,
     pendingPaletteSave,

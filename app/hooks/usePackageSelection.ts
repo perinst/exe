@@ -7,31 +7,34 @@ export const usePackageSelection = () => {
     savePaletteToPackage,
     showPackageSelector,
     setShowPackageSelector,
+    selectionType,
+    setSelectionType,
     pendingColorSave,
     setPendingColorSave,
     pendingPaletteSave,
     setPendingPaletteSave,
   } = useLibrary();
+  const saveColorWithPackageSelection = useCallback(
+    (
+      color: string,
+      name?: string,
+      source?: "camera" | "gallery" | "picker"
+    ) => {
+      // console.log(
+      //   "usePackageSelection: saveColorWithPackageSelection called with:",
+      //   { color, name, source }
+      // );
 
-  const [selectionType, setSelectionType] = useState<
-    "color" | "palette" | null
-  >(null);
+      setPendingColorSave?.({ color, name, source });
+      setSelectionType?.("color");
+      setShowPackageSelector?.(true);
 
-  const saveColorWithPackageSelection = (
-    color: string,
-    name?: string,
-    source?: "camera" | "gallery" | "picker"
-  ) => {
-    console.log(
-      "usePackageSelection: saveColorWithPackageSelection called with:",
-      { color, name, source }
-    );
-
-    setPendingColorSave?.({ color, name, source });
-    setSelectionType("color");
-    setShowPackageSelector?.(true);
-  };
-
+      // console.log(
+      //   "usePackageSelection: State set - selectionType should be 'color'"
+      // );
+    },
+    [setPendingColorSave, setSelectionType, setShowPackageSelector]
+  );
   const savePaletteWithPackageSelection = useCallback(
     (palette: {
       name: string;
@@ -40,15 +43,13 @@ export const usePackageSelection = () => {
       description?: string;
     }) => {
       setPendingPaletteSave?.(palette);
-      setSelectionType("palette");
+      setSelectionType?.("palette");
       setShowPackageSelector?.(true);
     },
-    [setPendingPaletteSave, setShowPackageSelector]
+    [setPendingPaletteSave, setSelectionType, setShowPackageSelector]
   );
-
   const handlePackageSelected = async (packageId: string) => {
     try {
-      console.log("handlePackageSelected", { selectionType, pendingColorSave });
       if (selectionType === "color" && pendingColorSave) {
         await saveColorToPackage(
           pendingColorSave.color,
@@ -58,15 +59,19 @@ export const usePackageSelection = () => {
         );
         setPendingColorSave?.(null);
       } else if (selectionType === "palette" && pendingPaletteSave) {
-        //   console.log("usePackageSelection: Saving palette to package");
         await savePaletteToPackage(pendingPaletteSave, packageId);
         setPendingPaletteSave?.(null);
+      } else {
+        console.log("No valid selection found:", {
+          selectionType,
+          hasPendingColorSave: !!pendingColorSave,
+          hasPendingPaletteSave: !!pendingPaletteSave,
+        });
       }
-      // console.log("usePackageSelection: Cleaning up selection state");
     } catch (error) {
       console.error("Error saving to package:", error);
     } finally {
-      setSelectionType(null);
+      setSelectionType?.(null);
       setShowPackageSelector?.(false);
     }
   };
@@ -74,7 +79,7 @@ export const usePackageSelection = () => {
   const cancelPackageSelection = useCallback(() => {
     setPendingColorSave?.(null);
     setPendingPaletteSave?.(null);
-    setSelectionType(null);
+    setSelectionType?.(null);
     setShowPackageSelector?.(false);
   }, [setPendingColorSave, setPendingPaletteSave, setShowPackageSelector]);
 
