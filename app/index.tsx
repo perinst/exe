@@ -14,6 +14,7 @@ import ColorLibrary from "./components/ColorLibrary";
 import LibraryPackageSelector from "./components/LibraryPackageSelector";
 import { LibraryProvider, useLibrary } from "./context/LibraryContext";
 import { usePackageSelection } from "./hooks/usePackageSelection";
+import Psychology from "./components/Psychology";
 
 type Tab = "analyzer" | "palette" | "library" | "psychology";
 
@@ -61,36 +62,7 @@ function HomeScreenContent() {
       case "library":
         return <ColorLibrary />;
       case "psychology":
-        return (
-          <View className="flex-1 items-center justify-center p-4 bg-white">
-            <Text className="text-xl font-bold mb-4">Color Psychology</Text>
-            <Text className="text-base text-center mb-4">
-              Learn about the emotional and psychological effects of different
-              colors.
-            </Text>
-            <View className="w-full p-4 rounded-lg bg-gray-100 mb-4">
-              <Text className="font-bold mb-2">Red</Text>
-              <Text>
-                Associated with energy, passion, and excitement. Can increase
-                heart rate and create urgency.
-              </Text>
-            </View>
-            <View className="w-full p-4 rounded-lg bg-gray-100 mb-4">
-              <Text className="font-bold mb-2">Blue</Text>
-              <Text>
-                Evokes feelings of calmness, trust, and security. Often used by
-                financial institutions.
-              </Text>
-            </View>
-            <View className="w-full p-4 rounded-lg bg-gray-100">
-              <Text className="font-bold mb-2">Yellow</Text>
-              <Text>
-                Represents optimism, clarity, and warmth. Can stimulate mental
-                activity and generate energy.
-              </Text>{" "}
-            </View>
-          </View>
-        );
+        return <Psychology />;
       default:
         return <ColorAnalyzer />;
     }
