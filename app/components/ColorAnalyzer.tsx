@@ -269,11 +269,6 @@ export default function ColorAnalyzer({
         width: displayWidth,
         height: displayHeight,
       });
-
-      console.log(
-        `Original image: ${imageDimensions.width}×${imageDimensions.height}`
-      );
-      console.log(`Display size: ${displayWidth}×${displayHeight}`);
     } catch (error) {
       console.error("Error processing image:", error);
       Alert.alert("Error", "Failed to process image for color picking.");
@@ -291,10 +286,6 @@ export default function ColorAnalyzer({
       width: layout.width,
       height: layout.height,
     });
-
-    console.log(
-      `Image view layout: ${layout.width}×${layout.height} at (${layout.x}, ${layout.y})`
-    );
   }
 
   // Handle image touch with accurate coordinate mapping
