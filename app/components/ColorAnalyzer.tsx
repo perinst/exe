@@ -708,12 +708,12 @@ export default function ColorAnalyzer({
             <Text className="text-white font-medium">Save Color</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             className="bg-purple-500 px-6 py-3 rounded-lg"
             onPress={() => onAddToPalette(selectedColor)}
           >
             <Text className="text-white font-medium">Add to Palette</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>{" "}
         {/* Camera Modal */}
         <Modal visible={showCamera} animationType="slide">

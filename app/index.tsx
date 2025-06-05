@@ -29,15 +29,8 @@ export default function HomeScreen() {
 
 function HomeScreenContent() {
   const [activeTab, setActiveTab] = useState<Tab>("analyzer");
-  const { saveColor, savePalette } = useLibrary();
   const { saveColorWithPackageSelection, savePaletteWithPackageSelection } =
     usePackageSelection();
-
-  // Test function to trigger package selector
-  const testPackageSelector = () => {
-    console.log("Test button clicked - triggering package selector");
-    saveColorWithPackageSelection("#FF0000", "Test Red Color", "picker");
-  };
 
   const handleSaveColor = (color: string) => {
     saveColorWithPackageSelection(color, undefined, "picker");

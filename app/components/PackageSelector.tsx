@@ -10,11 +10,12 @@ import {
 import { Package, Check, X } from "lucide-react-native";
 import { ColorPackage } from "../types/library";
 import { LibraryStorage } from "../utils/libraryStorage";
+import { useLibrary } from "../context/LibraryContext";
 
 interface PackageSelectorProps {
   visible: boolean;
   onClose: () => void;
-  onSelectPackage: (packageId: string) => void;
+  onSelectPackage: (packageId: string) => Promise<void>;
   title?: string;
   subtitle?: string;
 }
@@ -30,7 +31,8 @@ const PackageSelector: React.FC<PackageSelectorProps> = ({
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
     null
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -55,11 +57,19 @@ const PackageSelector: React.FC<PackageSelectorProps> = ({
       setLoading(false);
     }
   };
-
-  const handleSelectPackage = () => {
+  const handleSelectPackage = async () => {
     if (selectedPackageId) {
-      onSelectPackage(selectedPackageId);
-      onClose();
+      try {
+        setSaving(true);
+        await onSelectPackage(selectedPackageId);
+        // Don't call onClose() here - let the parent component handle it
+        // onClose will be called by the usePackageSelection hook after successful save
+      } catch (error) {
+        console.error("Error saving to package:", error);
+        Alert.alert("Error", "Failed to save to package");
+      } finally {
+        setSaving(false);
+      }
     } else {
       Alert.alert("Error", "Please select a package");
     }
@@ -68,12 +78,25 @@ const PackageSelector: React.FC<PackageSelectorProps> = ({
   const handleCancel = () => {
     onClose();
   };
+
   if (loading)
     return (
-      <View className="py-8 items-center">
-        <Text className="text-gray-500">Loading packages...</Text>
-      </View>
+      <Modal visible={true}>
+        <View className="py-8 items-center">
+          <Text className="text-gray-500">Loading packages...</Text>
+        </View>
+      </Modal>
     );
+
+  if (saving) {
+    return (
+      <Modal visible={true}>
+        <View className="py-8 items-center">
+          <Text className="text-gray-500">Saving package...</Text>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

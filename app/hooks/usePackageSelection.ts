@@ -16,23 +16,21 @@ export const usePackageSelection = () => {
   const [selectionType, setSelectionType] = useState<
     "color" | "palette" | null
   >(null);
-  const saveColorWithPackageSelection = useCallback(
-    (
-      color: string,
-      name?: string,
-      source?: "camera" | "gallery" | "picker"
-    ) => {
-      console.log(
-        "usePackageSelection: saveColorWithPackageSelection called with:",
-        { color, name, source }
-      );
-      setPendingColorSave?.({ color, name, source });
-      setSelectionType("color");
-      setShowPackageSelector?.(true);
-      console.log("usePackageSelection: Package selector should be shown now");
-    },
-    [setPendingColorSave, setShowPackageSelector]
-  );
+
+  const saveColorWithPackageSelection = (
+    color: string,
+    name?: string,
+    source?: "camera" | "gallery" | "picker"
+  ) => {
+    console.log(
+      "usePackageSelection: saveColorWithPackageSelection called with:",
+      { color, name, source }
+    );
+
+    setPendingColorSave?.({ color, name, source });
+    setSelectionType("color");
+    setShowPackageSelector?.(true);
+  };
 
   const savePaletteWithPackageSelection = useCallback(
     (palette: {
@@ -47,53 +45,31 @@ export const usePackageSelection = () => {
     },
     [setPendingPaletteSave, setShowPackageSelector]
   );
-  const handlePackageSelected = useCallback(
-    async (packageId: string) => {
-      try {
-        console.log(
-          "usePackageSelection: handlePackageSelected called with packageId:",
-          packageId
+
+  const handlePackageSelected = async (packageId: string) => {
+    try {
+      console.log("handlePackageSelected", { selectionType, pendingColorSave });
+      if (selectionType === "color" && pendingColorSave) {
+        await saveColorToPackage(
+          pendingColorSave.color,
+          packageId,
+          pendingColorSave.name,
+          pendingColorSave.source
         );
-        // console.log("usePackageSelection: selectionType:", selectionType);
-        // console.log("usePackageSelection: pendingColorSave:", pendingColorSave);
-        // console.log(
-        //   "usePackageSelection: pendingPaletteSave:",
-        //   pendingPaletteSave
-        // );
-
-        if (selectionType === "color" && pendingColorSave) {
-          console.log("usePackageSelection: Saving color to package");
-          await saveColorToPackage(
-            pendingColorSave.color,
-            packageId,
-            pendingColorSave.name,
-            pendingColorSave.source
-          );
-          setPendingColorSave?.(null);
-        } else if (selectionType === "palette" && pendingPaletteSave) {
-          //   console.log("usePackageSelection: Saving palette to package");
-          await savePaletteToPackage(pendingPaletteSave, packageId);
-          setPendingPaletteSave?.(null);
-        }
-
-        // console.log("usePackageSelection: Cleaning up selection state");
-        setSelectionType(null);
-        setShowPackageSelector?.(false);
-      } catch (error) {
-        console.error("Error saving to package:", error);
+        setPendingColorSave?.(null);
+      } else if (selectionType === "palette" && pendingPaletteSave) {
+        //   console.log("usePackageSelection: Saving palette to package");
+        await savePaletteToPackage(pendingPaletteSave, packageId);
+        setPendingPaletteSave?.(null);
       }
-    },
-    [
-      selectionType,
-      pendingColorSave,
-      pendingPaletteSave,
-      saveColorToPackage,
-      savePaletteToPackage,
-      setPendingColorSave,
-      setPendingPaletteSave,
-      setShowPackageSelector,
-    ]
-  );
+      // console.log("usePackageSelection: Cleaning up selection state");
+    } catch (error) {
+      console.error("Error saving to package:", error);
+    } finally {
+      setSelectionType(null);
+      setShowPackageSelector?.(false);
+    }
+  };
 
   const cancelPackageSelection = useCallback(() => {
     setPendingColorSave?.(null);

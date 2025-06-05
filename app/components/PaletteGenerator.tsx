@@ -50,7 +50,7 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
   // Generate sample palettes based on the scheme
   const generatePalette = (
     scheme: ColorScheme,
-    baseColor: string,
+    baseColor: string
   ): string[] => {
     // This is a simplified implementation - in a real app, you would use proper color theory algorithms
     switch (scheme) {
@@ -144,10 +144,14 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
               <TouchableOpacity
                 key={scheme}
                 onPress={() => setSelectedScheme(scheme)}
-                className={`py-2 px-4 mr-2 rounded-full ${selectedScheme === scheme ? "bg-blue-500" : "bg-gray-200"}`}
+                className={`py-2 px-4 mr-2 rounded-full ${
+                  selectedScheme === scheme ? "bg-blue-500" : "bg-gray-200"
+                }`}
               >
                 <Text
-                  className={`${selectedScheme === scheme ? "text-white" : "text-gray-700"} capitalize`}
+                  className={`${
+                    selectedScheme === scheme ? "text-white" : "text-gray-700"
+                  } capitalize`}
                 >
                   {scheme}
                 </Text>

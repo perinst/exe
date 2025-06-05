@@ -142,6 +142,7 @@ export const LibraryProvider: React.FC<LibraryProviderProps> = ({
         };
 
         console.log("LibraryContext: Saving color to package:", savedColor);
+
         await LibraryStorage.saveColor(savedColor, packageId);
 
         console.log("LibraryContext: Color saved successfully");
