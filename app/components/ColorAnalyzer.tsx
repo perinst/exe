@@ -51,7 +51,7 @@ import { SkiaColorExtractor } from "../utils/skiaColorExtractor";
 import { useNavigation } from "expo-router";
 import { navigate } from "expo-router/build/global-state/routing";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Gesture, GestureDetector, GestureStateChangeEvent, GestureUpdateEvent, PanGestureHandler } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView, GestureStateChangeEvent, GestureUpdateEvent, PanGestureHandler } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedGestureHandler, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { PanGestureHandlerEventPayload } from "react-native-screens";
 
@@ -194,120 +194,140 @@ export default function ColorAnalyzer({
                 animationType="fade"
                 transparent={true}
             >
-                <View
-                    style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" }}
-                    onTouchEnd={(e) => { e.stopPropagation(); toggleColorWheel(); }}
-                >
+                <GestureHandlerRootView style={{ flex: 1 }}>
                     <View
-                        className="bg-white p-4 rounded-lg shadow-md"
-                        style={{ width: size, height: size + 100, position: "fixed" }}
-                        onTouchEnd={(e) => { e.stopPropagation(); }}
+                        style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" }}
+                        onTouchEnd={(e) => { e.stopPropagation(); toggleColorWheel(); }}
                     >
-                        <View style={{ position: "relative" }}>
-                            <Text className="text-lg font-bold mb-2 text-center">
-                                Interactive Color Wheel
-                            </Text>
-                            <View
-                                onTouchEnd={toggleColorWheel}
-                                style={{ position: "absolute", right: -8, top: -8 }}
-                            >
-                                <Text style={{ fontSize: 20 }}>
-                                    <X size={20} color="#666" />
+                        <View
+                            className="bg-white p-4 rounded-lg shadow-md"
+                            style={{ width: size, height: size + 120, position: "fixed" }}
+                            onTouchEnd={(e) => { e.stopPropagation(); }}
+                        >
+                            <View style={{ position: "relative" }}>
+                                <Text className="text-lg font-bold mb-2 text-center">
+                                    Interactive Color Wheel
                                 </Text>
-                            </View>
-                        </View>
-
-                        <View className="items-center justify-center">
-                            <Svg height={size} width={size} viewBox={`0 0 ${size} ${size}`}>
-                                {/* Color wheel segments */}
-                                {wheelColors.map((color, index) => {
-                                    const startAngle = (index * 10 * Math.PI) / 180;
-                                    const endAngle = ((index + 1) * 10 * Math.PI) / 180;
-
-                                    const x1 = centerX + radius * Math.cos(startAngle);
-                                    const y1 = centerY + radius * Math.sin(startAngle);
-                                    const x2 = centerX + radius * Math.cos(endAngle);
-                                    const y2 = centerY + radius * Math.sin(endAngle);
-
-                                    const largeArcFlag = 0;
-
-                                    const pathData = `
-                                        M ${centerX} ${centerY}
-                                        L ${x1} ${y1}
-                                        A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}
-                                        Z
-                                    `;
-
-                                    return <Path key={index} d={pathData} fill={color} />;
-                                })}
-
-                                {/* Selected color indicator */}
-                                <Circle
-                                    cx={selectedPoint.x}
-                                    cy={selectedPoint.y}
-                                    r={10}
-                                    fill={selectedColor}
-                                    stroke="white"
-                                    strokeWidth={2}
-                                />
-
-                                {/* Complementary color indicator */}
-                                <Circle
-                                    cx={2 * centerX - selectedPoint.x}
-                                    cy={2 * centerY - selectedPoint.y}
-                                    r={10}
-                                    fill={complementaryColor}
-                                    stroke="white"
-                                    strokeWidth={2}
-                                    opacity={0.7}
-                                />
-                            </Svg>
-
-                            <GestureDetector gesture={gestureHandler}>
-                                <Animated.View
-                                    style={[
-                                        stylesColorWheel.gestureArea,
-                                        { width: size, height: size },
-                                        animatedStyle,
-                                    ]}
-                                />
-                            </GestureDetector>
-                        </View>
-
-                        <View className="flex-row justify-between items-center mt-4">
-                            <View className="flex-row items-center">
                                 <View
-                                    style={{
-                                        width: 24,
-                                        height: 24,
-                                        backgroundColor: selectedColor,
-                                        borderRadius: 12,
-                                    }}
-                                />
-                                <Text className="ml-2">{selectedColor}</Text>
+                                    onTouchEnd={toggleColorWheel}
+                                    style={{ position: "absolute", right: -8, top: -8, zIndex: 10000 }}
+                                >
+                                    <Text style={{ fontSize: 20 }}>
+                                        <X size={20} color="#666" />
+                                    </Text>
+                                </View>
                             </View>
 
-                            <View className="flex-row items-center">
-                                <Text className="mr-2">Complementary</Text>
-                                <View
-                                    style={{
-                                        width: 24,
-                                        height: 24,
-                                        backgroundColor: complementaryColor,
-                                        borderRadius: 12,
-                                    }}
-                                />
+                            <View className="items-center justify-center">
+                                <Svg height={size} width={size} viewBox={`0 0 ${size} ${size}`}>
+                                    {/* Color wheel segments */}
+                                    {wheelColors.map((color, index) => {
+                                        const startAngle = (index * 10 * Math.PI) / 180;
+                                        const endAngle = ((index + 1) * 10 * Math.PI) / 180;
+
+                                        const x1 = centerX + radius * Math.cos(startAngle);
+                                        const y1 = centerY + radius * Math.sin(startAngle);
+                                        const x2 = centerX + radius * Math.cos(endAngle);
+                                        const y2 = centerY + radius * Math.sin(endAngle);
+
+                                        const largeArcFlag = 0;
+
+                                        const pathData = `
+                                            M ${centerX} ${centerY}
+                                            L ${x1} ${y1}
+                                            A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}
+                                            Z
+                                        `;
+
+                                        return <Path key={index} d={pathData} fill={color} />;
+                                    })}
+
+                                    {/* Selected color indicator */}
+                                    <Circle
+                                        cx={selectedPoint.x}
+                                        cy={selectedPoint.y}
+                                        r={10}
+                                        fill={selectedColor}
+                                        stroke="white"
+                                        strokeWidth={2}
+                                    />
+
+                                    {/* Complementary color indicator */}
+                                    <Circle
+                                        cx={2 * centerX - selectedPoint.x}
+                                        cy={2 * centerY - selectedPoint.y}
+                                        r={10}
+                                        fill={complementaryColor}
+                                        stroke="white"
+                                        strokeWidth={2}
+                                        opacity={0.7}
+                                    />
+                                </Svg>
+
+                                <GestureDetector gesture={gestureHandler}>
+                                    <Animated.View
+                                        style={[
+                                            stylesColorWheel.gestureArea,
+                                            { width: size * 2, height: size * 2 },
+                                            animatedStyle,
+                                        ]}
+                                    >
+                                        <View style={{
+                                            position: 'absolute',
+                                            width: 30,
+                                            height: 30,
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            borderRadius: 15,
+                                            transform: "translate(-50%, -50%)",
+                                            marginTop: "50%",
+                                            marginLeft: "50%",
+                                        }}>
+                                            <Text style={{
+                                                fontSize: 24,
+                                                color: 'black',
+                                                lineHeight: 24,
+                                            }}>+</Text>
+                                        </View>
+                                    </Animated.View>
+                                </GestureDetector>
                             </View>
+
+                            <View className="flex-row justify-between items-center mt-4">
+                                <View className="flex-row items-center">
+                                    <View
+                                        style={{
+                                            width: 24,
+                                            height: 24,
+                                            backgroundColor: selectedColor,
+                                            borderRadius: 12,
+                                        }}
+                                    />
+                                    <Text className="ml-2">{selectedColor}</Text>
+                                </View>
+
+                                <View className="flex-row items-center">
+                                    <Text className="mr-2">Complementary</Text>
+                                    <View
+                                        style={{
+                                            width: 24,
+                                            height: 24,
+                                            backgroundColor: complementaryColor,
+                                            borderRadius: 12,
+                                        }}
+                                    />
+                                </View>
+                            </View>
+
+                            <TouchableOpacity className="mt-2 flex-row items-center justify-center">
+                                <Info size={16} color="#666" />
+                                <Text className="text-xs text-gray-500 ml-1">
+                                    Tap and drag to select colors
+                                </Text>
+                            </TouchableOpacity>
                         </View>
-
-                        <TouchableOpacity className="mt-2 flex-row items-center justify-center">
-                            <Info size={16} color="#666" />
-                            <Text className="text-xs text-gray-500 ml-1">
-                                Tap and drag to select colors
-                            </Text>
-                        </TouchableOpacity>
                     </View>
-                </View>
+                </GestureHandlerRootView>
             </Modal>
         );
     }
