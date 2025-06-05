@@ -8,6 +8,7 @@ import {
   Modal,
 } from "react-native";
 import Slider from "@react-native-community/slider";
+import CustomColorPicker from "./CustomColorPicker";
 import { Palette, Save, Download, Settings, Edit } from "lucide-react-native";
 import {
   hexToRgb,
@@ -53,15 +54,11 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
     null
   );
   const [showSettings, setShowSettings] = useState(false);
-
-  // Color picker controls
-  const [pickerHue, setPickerHue] = useState(220);
-  const [pickerSaturation, setPickerSaturation] = useState(91);
-  const [pickerLightness, setPickerLightness] = useState(60);
-  const [contrast, setContrast] = useState(100);
+  const [pickerColor, setPickerColor] = useState(baseColor);
 
   // Custom palette colors for individual editing
-  const [customColors, setCustomColors] = useState<string[]>([]); // Advanced color theory algorithms
+  const [customColors, setCustomColors] = useState<string[]>([]);
+  const [contrast, setContrast] = useState(100); // Advanced color theory algorithms
   const generatePalette = (
     scheme: ColorScheme,
     baseColor: string,
@@ -174,16 +171,13 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
     );
 
     return rgbToHex(adjustedR, adjustedG, adjustedB);
-  };
-
-  // Update color from HSL picker
+  }; // Update color from HSL picker
   const updateColorFromPicker = () => {
-    const adjustedLightness = Math.max(10, Math.min(90, pickerLightness));
-    const adjustedSaturation = Math.max(10, Math.min(100, pickerSaturation));
-    const rgb = hslToRgb(pickerHue, adjustedSaturation, adjustedLightness);
-    const hexColor = rgbToHex(rgb.r, rgb.g, rgb.b);
-    const contrastedColor = applyContrast(hexColor, contrast);
+    const contrastedColor = applyContrast(pickerColor, contrast);
     setCurrentBaseColor(contrastedColor);
+  }; // Handle color change from CustomColorPicker
+  const handleColorPickerChange = (color: string) => {
+    setPickerColor(color);
   };
 
   // Handle individual color editing
@@ -191,11 +185,7 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
     setEditingColorIndex(index);
     const colorToEdit =
       customColors.length > 0 ? customColors[index] : currentPalette[index];
-    const rgb = hexToRgb(colorToEdit);
-    const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-    setPickerHue(hsl.h);
-    setPickerSaturation(hsl.s);
-    setPickerLightness(hsl.l);
+    setPickerColor(colorToEdit);
     setShowColorPicker(true);
   };
 
@@ -203,10 +193,7 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
   const updateIndividualColor = () => {
     if (editingColorIndex === null) return;
 
-    const rgb = hslToRgb(pickerHue, pickerSaturation, pickerLightness);
-    const hexColor = rgbToHex(rgb.r, rgb.g, rgb.b);
-    const contrastedColor = applyContrast(hexColor, contrast);
-
+    const contrastedColor = applyContrast(pickerColor, contrast);
     const newCustomColors = [
       ...(customColors.length > 0 ? customColors : currentPalette),
     ];
@@ -224,19 +211,11 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
   React.useEffect(() => {
     setCustomColors([]);
   }, [selectedScheme, currentBaseColor, paletteSize]);
-
-  // Update base color from picker when picker controls change
+  // Update base color from picker when picker color changes
   React.useEffect(() => {
     if (!showColorPicker || editingColorIndex !== null) return;
     updateColorFromPicker();
-  }, [
-    pickerHue,
-    pickerSaturation,
-    pickerLightness,
-    contrast,
-    showColorPicker,
-    editingColorIndex,
-  ]);
+  }, [pickerColor, contrast, showColorPicker, editingColorIndex]);
 
   const handleSavePalette = () => {
     const newPalette: ColorPalette = {
@@ -258,13 +237,8 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
     onExportPalette(paletteToExport, format);
     setShowExportOptions(false);
   };
-
   const openBaseColorPicker = () => {
-    const rgb = hexToRgb(currentBaseColor);
-    const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-    setPickerHue(hsl.h);
-    setPickerSaturation(hsl.s);
-    setPickerLightness(hsl.l);
+    setPickerColor(currentBaseColor);
     setEditingColorIndex(null);
     setShowColorPicker(true);
   };
@@ -435,8 +409,7 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
             </View>
           </View>
         )}
-      </ScrollView>
-
+      </ScrollView>{" "}
       {/* Color Picker Modal */}
       <Modal
         visible={showColorPicker}
@@ -453,93 +426,16 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
               <TouchableOpacity onPress={() => setShowColorPicker(false)}>
                 <Text className="text-blue-500 text-lg">Cancel</Text>
               </TouchableOpacity>
-            </View>{" "}
-            {/* Live Preview */}
-            <View className="items-center mb-6">
-              <View
-                style={{
-                  backgroundColor: (() => {
-                    const rgb = hslToRgb(
-                      pickerHue,
-                      pickerSaturation,
-                      pickerLightness
-                    );
-                    return applyContrast(rgbObjToHex(rgb), contrast);
-                  })(),
-                }}
-                className="w-24 h-24 rounded-xl border-2 border-gray-200"
-              />
-              <Text className="mt-2 font-mono text-gray-600">
-                {(() => {
-                  const rgb = hslToRgb(
-                    pickerHue,
-                    pickerSaturation,
-                    pickerLightness
-                  );
-                  return applyContrast(rgbObjToHex(rgb), contrast);
-                })()}
-              </Text>
             </View>
-            {/* Hue Slider */}
-            <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-700 mb-2">
-                Hue: {Math.round(pickerHue)}°
-              </Text>
-              <Slider
-                style={{ width: "100%", height: 40 }}
-                minimumValue={0}
-                maximumValue={360}
-                value={pickerHue}
-                onValueChange={setPickerHue}
-                minimumTrackTintColor="#3B82F6"
-                maximumTrackTintColor="#E5E7EB"
-              />
-            </View>
-            {/* Saturation Slider */}
-            <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-700 mb-2">
-                Saturation: {Math.round(pickerSaturation)}%
-              </Text>
-              <Slider
-                style={{ width: "100%", height: 40 }}
-                minimumValue={0}
-                maximumValue={100}
-                value={pickerSaturation}
-                onValueChange={setPickerSaturation}
-                minimumTrackTintColor="#10B981"
-                maximumTrackTintColor="#E5E7EB"
-              />
-            </View>
-            {/* Lightness Slider */}
-            <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-700 mb-2">
-                Lightness: {Math.round(pickerLightness)}%
-              </Text>
-              <Slider
-                style={{ width: "100%", height: 40 }}
-                minimumValue={10}
-                maximumValue={90}
-                value={pickerLightness}
-                onValueChange={setPickerLightness}
-                minimumTrackTintColor="#F59E0B"
-                maximumTrackTintColor="#E5E7EB"
-              />
-            </View>
-            {/* Contrast Slider */}
-            <View className="mb-6">
-              <Text className="text-sm font-medium text-gray-700 mb-2">
-                Contrast: {Math.round(contrast)}%
-              </Text>
-              <Slider
-                style={{ width: "100%", height: 40 }}
-                minimumValue={50}
-                maximumValue={150}
-                value={contrast}
-                onValueChange={setContrast}
-                minimumTrackTintColor="#EF4444"
-                maximumTrackTintColor="#E5E7EB"
-              />
-            </View>
+
+            {/* Custom Color Picker */}
+            <CustomColorPicker
+              color={pickerColor}
+              onColorChange={handleColorPickerChange}
+              showPreview={true}
+              defaultMode="wheel"
+            />
+
             {/* Action Buttons */}
             <View className="flex-row justify-between">
               <TouchableOpacity
@@ -569,7 +465,6 @@ const PaletteGenerator: React.FC<PaletteGeneratorProps> = ({
           </View>
         </View>
       </Modal>
-
       {/* Settings Modal */}
       <Modal
         visible={showSettings}
