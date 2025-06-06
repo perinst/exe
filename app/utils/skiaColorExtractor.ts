@@ -49,7 +49,7 @@ export class SkiaColorExtractor {
       if (this.imageCache.has(imageUri)) {
         const cachedImage = this.imageCache.get(imageUri);
         if (cachedImage) {
-          console.log("SkiaColorExtractor: Using cached image");
+          // console.log("SkiaColorExtractor: Using cached image");
           return cachedImage;
         }
       } // Manage cache size
@@ -75,9 +75,7 @@ export class SkiaColorExtractor {
       if (image) {
         // Cache the image for future use
         this.imageCache.set(imageUri, image);
-        console.log(
-          `SkiaColorExtractor: Loaded image ${image.width()}×${image.height()}`
-        );
+
         return image;
       }
 
@@ -119,7 +117,6 @@ export class SkiaColorExtractor {
       const height = image.height(); // Read pixels directly from image - more efficient
       const rawPixels = image.readPixels();
       if (!rawPixels) {
-        console.log("SkiaColorExtractor: Failed to read pixels");
         return null;
       }
 
@@ -150,7 +147,6 @@ export class SkiaColorExtractor {
     try {
       const imageData = await this.getImagePixels(imageUri);
       if (!imageData) {
-        console.log("SkiaColorExtractor: Failed to load image data");
         return null;
       }
 
@@ -158,9 +154,6 @@ export class SkiaColorExtractor {
 
       // Validate coordinates
       if (x < 0 || x >= width || y < 0 || y >= height) {
-        console.log(
-          `SkiaColorExtractor: Coordinates out of bounds: (${x}, ${y})`
-        );
         return null;
       }
 
@@ -168,7 +161,6 @@ export class SkiaColorExtractor {
       const pixelIndex = (y * width + x) * 4;
 
       if (pixelIndex + 3 >= pixels.length) {
-        console.log("SkiaColorExtractor: Pixel index out of range");
         return null;
       }
 
@@ -176,10 +168,6 @@ export class SkiaColorExtractor {
       const g = pixels[pixelIndex + 1];
       const b = pixels[pixelIndex + 2];
       const a = pixels[pixelIndex + 3];
-
-      console.log(
-        `SkiaColorExtractor: Extracted color at (${x}, ${y}): RGBA(${r}, ${g}, ${b}, ${a})`
-      );
 
       return { r, g, b, a };
     } catch (error) {
@@ -207,10 +195,6 @@ export class SkiaColorExtractor {
 
       const centerX = Math.floor(image.width() / 2);
       const centerY = Math.floor(image.height() / 2);
-
-      console.log(
-        `SkiaColorExtractor: Extracting center color at (${centerX}, ${centerY})`
-      );
 
       return await this.getColorAtPixel(imageUri, centerX, centerY);
     } catch (error) {
@@ -265,9 +249,6 @@ export class SkiaColorExtractor {
         }
       }
 
-      console.log(
-        `SkiaColorExtractor: Extracted ${colors.length} colors from ${gridSize}x${gridSize} grid (optimized)`
-      );
       return colors;
     } catch (error) {
       console.error(
@@ -336,9 +317,9 @@ export class SkiaColorExtractor {
         a: Math.round(totalA / validPixels),
       };
 
-      console.log(
-        `SkiaColorExtractor: Average color from ${validPixels} pixels around (${centerX}, ${centerY}): RGBA(${avgColor.r}, ${avgColor.g}, ${avgColor.b}, ${avgColor.a})`
-      );
+      // console.log(
+      //   `SkiaColorExtractor: Average color from ${validPixels} pixels around (${centerX}, ${centerY}): RGBA(${avgColor.r}, ${avgColor.g}, ${avgColor.b}, ${avgColor.a})`
+      // );
 
       return avgColor;
     } catch (error) {
@@ -408,7 +389,6 @@ export class SkiaColorExtractor {
   static clearCache(): void {
     this.imageCache.clear();
     this.pixelCache.clear();
-    console.log("SkiaColorExtractor: Image and pixel caches cleared");
   }
   /**
    * Extract dominant colors from image using optimized color quantization
@@ -474,9 +454,6 @@ export class SkiaColorExtractor {
         .slice(0, maxColors)
         .map((item) => item.color);
 
-      console.log(
-        `SkiaColorExtractor: Extracted ${sortedColors.length} dominant colors (optimized, sample rate: ${sampleRate})`
-      );
       return sortedColors;
     } catch (error) {
       console.error(
@@ -524,9 +501,6 @@ export class SkiaColorExtractor {
         sampleRate
       );
 
-      console.log(
-        `SkiaColorExtractor: Extracted ${refinedColors.length} adaptive colors (quality: ${qualityLevel})`
-      );
       return refinedColors;
     } catch (error) {
       console.error(
@@ -741,9 +715,6 @@ export class SkiaColorExtractor {
         .slice(0, maxColors)
         .map((item) => item.color);
 
-      console.log(
-        `SkiaColorExtractor: Extracted ${sortedColors.length} perceptual colors`
-      );
       return sortedColors;
     } catch (error) {
       console.error(
