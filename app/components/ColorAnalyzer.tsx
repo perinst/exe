@@ -25,6 +25,7 @@ import {
   X,
   RotateCcw,
   Plus,
+  Info,
 } from "lucide-react-native";
 import {
   hexToRgb,
@@ -47,6 +48,17 @@ import {
 import { findNearestColorName } from "../utils/colorList";
 
 import { SkiaColorExtractor } from "../utils/skiaColorExtractor";
+import Svg, { Circle, Path } from "react-native-svg";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 
 type ColorSource = "camera" | "gallery" | "picker";
 
@@ -60,7 +72,291 @@ export default function ColorAnalyzer({
   onSaveColor = () => {},
   onAddToPalette = () => {},
 }: ColorAnalyzerProps) {
+  // const navigate = useNavigation();
+
+  const size = 300;
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const radius = size / 2 - 20;
+
+  const [showColorWheel, setShowColorWheel] = useState(false);
+  const [wheelColors, setWheelColors] = useState<string[]>([]);
+  const [selectedPoint, setSelectedPoint] = useState({ x: 0, y: 0 });
+  const [complementaryColor, setComplementaryColor] =
+    useState<string>("#00FFFF");
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
   const [selectedColor, setSelectedColor] = useState<string>("");
+
+  useEffect(() => {
+    const colors: string[] = [];
+    for (let angle = 0; angle < 360; angle += 10) {
+      const hue = angle;
+      const color = `hsl(${hue}, 100%, 50%)`;
+      colors.push(color);
+    }
+    setWheelColors(colors);
+  }, []);
+
+  useEffect(() => {
+    if (selectedColor) {
+      // Simple complementary calculation (180 degrees on the color wheel)
+      const hex = selectedColor.replace("#", "");
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+
+      const compR = 255 - r;
+      const compG = 255 - g;
+      const compB = 255 - b;
+
+      const compHex = `#${compR.toString(16).padStart(2, "0")}${compG
+        .toString(16)
+        .padStart(2, "0")}${compB.toString(16).padStart(2, "0")}`;
+      setComplementaryColor(compHex);
+    }
+  }, [selectedColor]);
+
+  const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color)
+        .toString(16)
+        .padStart(2, "0");
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  };
+
+  const onColorSelect = (hexColor: string) => {
+    setSelectedColor(hexColor);
+  }; // obama
+
+  const handleColorSelect = (x: number, y: number) => {
+    // Calculate distance from center
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance <= radius) {
+      // Calculate angle
+      let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      if (angle < 0) angle += 360;
+
+      // Calculate hue from angle
+      const hue = angle;
+
+      // Calculate saturation from distance (0 at center, 100% at edge)
+      const saturation = (distance / radius) * 100;
+
+      // Create HSL color
+      const color = `hsl(${hue}, ${saturation}%, 50%)`;
+
+      // Convert HSL to HEX for API consistency
+      const hexColor = hslToHex(hue, saturation, 50);
+
+      setSelectedPoint({ x: dx + centerX, y: dy + centerY });
+      onColorSelect(hexColor);
+    }
+  };
+
+  const gestureHandler = Gesture.Pan()
+    .onStart(() => {
+      "worklet";
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      "worklet";
+      translateX.value = startX.value + event.translationX;
+      translateY.value = startY.value + event.translationY;
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(handleColorSelect)(
+        translateX.value + centerX,
+        translateY.value + centerY
+      );
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
+  function toggleColorWheel() {
+    setShowColorWheel((prev) => !prev);
+  }
+
+  function renderColorWheelModal() {
+    return (
+      <Modal visible={showColorWheel} animationType="fade" transparent={true}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              toggleColorWheel();
+            }}
+          >
+            <View
+              className="bg-white p-4 rounded-lg shadow-md"
+              style={{ width: size, height: size + 120, position: "fixed" }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <View style={{ position: "relative" }}>
+                <Text className="text-lg font-bold mb-2 text-center">
+                  Interactive Color Wheel
+                </Text>
+                <View
+                  onTouchEnd={toggleColorWheel}
+                  style={{
+                    position: "absolute",
+                    right: -8,
+                    top: -8,
+                    zIndex: 10000,
+                  }}
+                >
+                  <Text style={{ fontSize: 20 }}>
+                    <X size={20} color="#666" />
+                  </Text>
+                </View>
+              </View>
+
+              <View className="items-center justify-center">
+                <Svg height={size} width={size} viewBox={`0 0 ${size} ${size}`}>
+                  {/* Color wheel segments */}
+                  {wheelColors.map((color, index) => {
+                    const startAngle = (index * 10 * Math.PI) / 180;
+                    const endAngle = ((index + 1) * 10 * Math.PI) / 180;
+
+                    const x1 = centerX + radius * Math.cos(startAngle);
+                    const y1 = centerY + radius * Math.sin(startAngle);
+                    const x2 = centerX + radius * Math.cos(endAngle);
+                    const y2 = centerY + radius * Math.sin(endAngle);
+
+                    const largeArcFlag = 0;
+
+                    const pathData = `
+                                            M ${centerX} ${centerY}
+                                            L ${x1} ${y1}
+                                            A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}
+                                            Z
+                                        `;
+
+                    return <Path key={index} d={pathData} fill={color} />;
+                  })}
+
+                  {/* Selected color indicator */}
+                  <Circle
+                    cx={selectedPoint.x}
+                    cy={selectedPoint.y}
+                    r={10}
+                    fill={selectedColor}
+                    stroke="white"
+                    strokeWidth={2}
+                  />
+
+                  {/* Complementary color indicator */}
+                  <Circle
+                    cx={2 * centerX - selectedPoint.x}
+                    cy={2 * centerY - selectedPoint.y}
+                    r={10}
+                    fill={complementaryColor}
+                    stroke="white"
+                    strokeWidth={2}
+                    opacity={0.7}
+                  />
+                </Svg>
+
+                <GestureDetector gesture={gestureHandler}>
+                  <Animated.View
+                    style={[
+                      stylesColorWheel.gestureArea,
+                      { width: size * 2, height: size * 2 },
+                      animatedStyle,
+                    ]}
+                  >
+                    <View
+                      style={{
+                        position: "absolute",
+                        width: 30,
+                        height: 30,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        borderRadius: 15,
+                        transform: "translate(-50%, -50%)",
+                        marginTop: "50%",
+                        marginLeft: "50%",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 24,
+                          color: "black",
+                          lineHeight: 24,
+                        }}
+                      >
+                        +
+                      </Text>
+                    </View>
+                  </Animated.View>
+                </GestureDetector>
+              </View>
+
+              <View className="flex-row justify-between items-center mt-4">
+                <View className="flex-row items-center">
+                  <View
+                    style={{
+                      width: 24,
+                      height: 24,
+                      backgroundColor: selectedColor,
+                      borderRadius: 12,
+                    }}
+                  />
+                  <Text className="ml-2">{selectedColor}</Text>
+                </View>
+
+                <View className="flex-row items-center">
+                  <Text className="mr-2">Complementary</Text>
+                  <View
+                    style={{
+                      width: 24,
+                      height: 24,
+                      backgroundColor: complementaryColor,
+                      borderRadius: 12,
+                    }}
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity className="mt-2 flex-row items-center justify-center">
+                <Info size={16} color="#666" />
+                <Text className="text-xs text-gray-500 ml-1">
+                  Tap and drag to select colors
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </GestureHandlerRootView>
+      </Modal>
+    );
+  }
+
   const [selectedColorName, setSelectedColorName] = useState<string>("");
   const [activeSource, setActiveSource] = useState<ColorSource | null>(null);
   const [showCamera, setShowCamera] = useState(false);
@@ -170,7 +466,8 @@ export default function ColorAnalyzer({
         break;
 
       case "picker":
-        // Color picker is handled by the ColorWheel component
+        toggleColorWheel();
+        // navigate("/components/ColorWheel");
         break;
     }
   };
@@ -545,316 +842,319 @@ export default function ColorAnalyzer({
   }
 
   return (
-    <ScrollView className="flex-1 bg-white">
-      <View className="p-4">
-        <Text className="text-2xl font-bold mb-6 text-center">
-          Color Analyzer
-        </Text>
-        {/* Color Source Selection */}
-        <View className="flex-row justify-around mb-8">
-          <TouchableOpacity
-            className={`items-center p-3 rounded-lg ${
-              activeSource === "camera" ? "bg-blue-100" : "bg-gray-100"
-            }`}
-            onPress={() => selectColorFromSource("camera")}
-          >
-            <CameraIcon size={24} color="#0f172a" />
-            <Text className="mt-2 text-sm">Camera</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`items-center p-3 rounded-lg ${
-              activeSource === "gallery" ? "bg-blue-100" : "bg-gray-100"
-            }`}
-            onPress={() => selectColorFromSource("gallery")}
-          >
-            <ImageIcon size={24} color="#0f172a" />
-            <Text className="mt-2 text-sm">Gallery</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`items-center p-3 rounded-lg ${
-              activeSource === "picker" ? "bg-blue-100" : "bg-gray-100"
-            }`}
-            onPress={() => selectColorFromSource("picker")}
-          >
-            <Palette size={24} color="#0f172a" />
-            <Text className="mt-2 text-sm">Color Picker</Text>
-          </TouchableOpacity>
-        </View>{" "}
-        {/* Color Preview */}
-        <View className="items-center mb-2">
-          <View
-            style={{ backgroundColor: selectedColor }}
-            className="w-16 h-16 rounded-full shadow-md"
-          />
-          <Text className="mt-2 text-lg font-medium">
-            {selectedColor?.toUpperCase()}
+    <>
+      <ScrollView className="flex-1 bg-white" scrollEnabled={false}>
+        <View className="p-4">
+          <Text className="text-2xl font-bold mb-6 text-center">
+            Color Analyzer
           </Text>
-        </View>
-        {/* Captured Image with Color Picker */}
-        {capturedImage && (
-          <View className="mb-6">
-            <Text className="text-lg font-bold mb-2">
-              Tap on the image to pick a color
+          {/* Color Source Selection */}
+          <View className="flex-row justify-around mb-8">
+            <TouchableOpacity
+              className={`items-center p-3 rounded-lg ${
+                activeSource === "camera" ? "bg-blue-100" : "bg-gray-100"
+              }`}
+              onPress={() => selectColorFromSource("camera")}
+            >
+              <CameraIcon size={24} color="#0f172a" />
+              <Text className="mt-2 text-sm">Camera</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className={`items-center p-3 rounded-lg ${
+                activeSource === "gallery" ? "bg-blue-100" : "bg-gray-100"
+              }`}
+              onPress={() => selectColorFromSource("gallery")}
+            >
+              <ImageIcon size={24} color="#0f172a" />
+              <Text className="mt-2 text-sm">Gallery</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className={`items-center p-3 rounded-lg ${
+                activeSource === "picker" ? "bg-blue-100" : "bg-gray-100"
+              }`}
+              onPress={() => selectColorFromSource("picker")}
+            >
+              <Palette size={24} color="#0f172a" />
+              <Text className="mt-2 text-sm">Color Picker</Text>
+            </TouchableOpacity>
+          </View>{" "}
+          {/* Color Preview */}
+          <View className="items-center mb-2">
+            <View
+              style={{ backgroundColor: selectedColor }}
+              className="w-16 h-16 rounded-full shadow-md"
+            />
+            <Text className="mt-2 text-lg font-medium">
+              {selectedColor?.toUpperCase()}
             </Text>
-            <View className="relative" style={{ alignSelf: "center" }}>
-              <TouchableOpacity
-                onPress={handleImageTouch}
-                activeOpacity={1}
-                disabled={analyzing}
-              >
-                <RNImage
-                  ref={imageRef}
-                  source={{ uri: capturedImage }}
-                  style={{
-                    width: displayImageDimensions.width,
-                    height: displayImageDimensions.height,
-                    borderRadius: 8,
-                    backgroundColor: "#f0f0f0",
-                    opacity: analyzing ? 0.7 : 1,
-                  }}
-                  resizeMode="contain"
-                  onLayout={handleImageLayout}
-                />
-              </TouchableOpacity>
-
-              {/* Loading overlay for image analysis */}
-              {analyzing && (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0, 0, 0, 0.3)",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    borderRadius: 8,
-                  }}
-                >
-                  <ActivityIndicator size="large" color="#3b82f6" />
-                  <Text className="text-white font-medium mt-2">
-                    Analyzing...
-                  </Text>
-                </View>
-              )}
-
-              {/* Crosshair overlay */}
-              {!analyzing && (
-                <View
-                  style={{
-                    position: "absolute",
-                    left: crosshairPosition.x - 25,
-                    top: crosshairPosition.y - 25,
-                    width: 50,
-                    height: 50,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <Plus size={30} color="#ece6e6" strokeWidth={3} />
-                </View>
-              )}
-
-              {/* Color preview at touch point */}
-              {!analyzing && (
-                <View
-                  style={{
-                    position: "absolute",
-                    left: Math.min(
-                      crosshairPosition.x + 20,
-                      displayImageDimensions.width - 60
-                    ),
-                    top: Math.max(crosshairPosition.y - 40, 0),
-                    backgroundColor: selectedColor,
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    borderWidth: 3,
-                    borderColor: "white",
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 3.84,
-                    elevation: 5,
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-            </View>{" "}
-            {/* Image and touch debug info */}
-            <View className="mt-2 p-2 bg-gray-100 rounded">
-              <Text className="text-xs text-gray-600">
-                Original: {originalImageDimensions.width}×
-                {originalImageDimensions.height}
-              </Text>
-              <Text className="text-xs text-gray-600">
-                Display: {displayImageDimensions.width.toFixed(0)}×
-                {displayImageDimensions.height.toFixed(0)}
-              </Text>
-              <Text className="text-xs text-gray-600">
-                View Layout: {imageViewLayout.width.toFixed(0)}×
-                {imageViewLayout.height.toFixed(0)}
-              </Text>
-            </View>{" "}
-            <View className="flex-row justify-center space-x-2 mt-2">
-              <TouchableOpacity
-                className="bg-gray-500 px-4 py-2 rounded-lg"
-                onPress={() => {
-                  setCapturedImage(null);
-                  setImageUri(null);
-                  setOriginalImageDimensions({ width: 0, height: 0 });
-                  setDisplayImageDimensions({ width: 0, height: 0 });
-                  setImageViewLayout({ x: 0, y: 0, width: 0, height: 0 });
-                }}
-              >
-                <Text className="text-white font-medium">Clear Image</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        )}
-        {/* Color Details Component */}
-        <View className="mb-6">
-          <ColorDetails
-            color={selectedColor}
-            rgbValues={colorConversions?.rgb}
-            hslValues={colorConversions?.hsl}
-            cmykValues={colorConversions?.cmyk}
-            rybValues={colorConversions?.ryb}
-          />
-        </View>
-        {/* Action Buttons */}
-        <View className="flex-row justify-around mt-4 mb-8">
-          <TouchableOpacity
-            className="bg-blue-500 px-6 py-3 rounded-lg"
-            onPress={() => onSaveColor(selectedColor)}
-          >
-            <Text className="text-white font-medium">Save Color</Text>
-          </TouchableOpacity>
+          {/* Captured Image with Color Picker */}
+          {capturedImage && (
+            <View className="mb-6">
+              <Text className="text-lg font-bold mb-2">
+                Tap on the image to pick a color
+              </Text>
+              <View className="relative" style={{ alignSelf: "center" }}>
+                <TouchableOpacity
+                  onPress={handleImageTouch}
+                  activeOpacity={1}
+                  disabled={analyzing}
+                >
+                  <RNImage
+                    ref={imageRef}
+                    source={{ uri: capturedImage }}
+                    style={{
+                      width: displayImageDimensions.width,
+                      height: displayImageDimensions.height,
+                      borderRadius: 8,
+                      backgroundColor: "#f0f0f0",
+                      opacity: analyzing ? 0.7 : 1,
+                    }}
+                    resizeMode="contain"
+                    onLayout={handleImageLayout}
+                  />
+                </TouchableOpacity>
 
-          {/* <TouchableOpacity
-            className="bg-purple-500 px-6 py-3 rounded-lg"
-            onPress={() => onAddToPalette(selectedColor)}
-          >
-            <Text className="text-white font-medium">Add to Palette</Text>
+                {/* Loading overlay for image analysis */}
+                {analyzing && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: "rgba(0, 0, 0, 0.3)",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <ActivityIndicator size="large" color="#3b82f6" />
+                    <Text className="text-white font-medium mt-2">
+                      Analyzing...
+                    </Text>
+                  </View>
+                )}
+
+                {/* Crosshair overlay */}
+                {!analyzing && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: crosshairPosition.x - 25,
+                      top: crosshairPosition.y - 25,
+                      width: 50,
+                      height: 50,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <Plus size={30} color="#ece6e6" strokeWidth={3} />
+                  </View>
+                )}
+
+                {/* Color preview at touch point */}
+                {!analyzing && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: Math.min(
+                        crosshairPosition.x + 20,
+                        displayImageDimensions.width - 60
+                      ),
+                      top: Math.max(crosshairPosition.y - 40, 0),
+                      backgroundColor: selectedColor,
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      borderWidth: 3,
+                      borderColor: "white",
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3.84,
+                      elevation: 5,
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+              </View>{" "}
+              {/* Image and touch debug info */}
+              <View className="mt-2 p-2 bg-gray-100 rounded">
+                <Text className="text-xs text-gray-600">
+                  Original: {originalImageDimensions.width}×
+                  {originalImageDimensions.height}
+                </Text>
+                <Text className="text-xs text-gray-600">
+                  Display: {displayImageDimensions.width.toFixed(0)}×
+                  {displayImageDimensions.height.toFixed(0)}
+                </Text>
+                <Text className="text-xs text-gray-600">
+                  View Layout: {imageViewLayout.width.toFixed(0)}×
+                  {imageViewLayout.height.toFixed(0)}
+                </Text>
+              </View>{" "}
+              <View className="flex-row justify-center space-x-2 mt-2">
+                <TouchableOpacity
+                  className="bg-gray-500 px-4 py-2 rounded-lg"
+                  onPress={() => {
+                    setCapturedImage(null);
+                    setImageUri(null);
+                    setOriginalImageDimensions({ width: 0, height: 0 });
+                    setDisplayImageDimensions({ width: 0, height: 0 });
+                    setImageViewLayout({ x: 0, y: 0, width: 0, height: 0 });
+                  }}
+                >
+                  <Text className="text-white font-medium">Clear Image</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          {/* Color Details Component */}
+          <View className="mb-6">
+            <ColorDetails
+              color={selectedColor}
+              rgbValues={colorConversions?.rgb}
+              hslValues={colorConversions?.hsl}
+              cmykValues={colorConversions?.cmyk}
+              rybValues={colorConversions?.ryb}
+            />
+          </View>
+          {/* Action Buttons */}
+          <View className="flex-row justify-around mt-4 mb-8">
+            <TouchableOpacity
+              className="bg-blue-500 px-6 py-3 rounded-lg"
+              onPress={() => onSaveColor(selectedColor)}
+            >
+              <Text className="text-white font-medium">Save Color</Text>
+            </TouchableOpacity>
+
+            {/* <TouchableOpacity
+              className="bg-purple-500 px-6 py-3 rounded-lg"
+              onPress={() => onAddToPalette(selectedColor)}
+            >
+              <Text className="text-white font-medium">Add to Palette</Text>
           </TouchableOpacity> */}
-        </View>{" "}
-        {/* Camera Modal */}
-        <Modal visible={showCamera} animationType="slide">
-          <View style={styles.cameraContainer}>
-            {permission?.granted ? (
-              <>
-                <CameraView
-                  ref={cameraRef}
-                  style={styles.camera}
-                  facing={cameraFacing}
-                  onCameraReady={() => setIsCameraReady(true)}
-                />
+          </View>{" "}
+          {/* Camera Modal */}
+          <Modal visible={showCamera} animationType="slide">
+            <View style={styles.cameraContainer}>
+              {permission?.granted ? (
+                <>
+                  <CameraView
+                    ref={cameraRef}
+                    style={styles.camera}
+                    facing={cameraFacing}
+                    onCameraReady={() => setIsCameraReady(true)}
+                  />
 
-                {/* Camera UI Overlay */}
-                <View style={styles.cameraOverlay}>
-                  {/* Loading overlay for camera analysis */}
-                  {analyzing && (
-                    <View style={styles.cameraLoadingOverlay}>
-                      <ActivityIndicator size="large" color="#ffffff" />
-                      <Text style={styles.cameraLoadingText}>
-                        Analyzing camera frame...
-                      </Text>
+                  {/* Camera UI Overlay */}
+                  <View style={styles.cameraOverlay}>
+                    {/* Loading overlay for camera analysis */}
+                    {analyzing && (
+                      <View style={styles.cameraLoadingOverlay}>
+                        <ActivityIndicator size="large" color="#ffffff" />
+                        <Text style={styles.cameraLoadingText}>
+                          Analyzing camera frame...
+                        </Text>
+                      </View>
+                    )}
+                    {/* Center crosshair for real-time analysis */}
+                    {!analyzing && (
+                      <View style={styles.centerCrosshair}>
+                        <Plus size={50} color="white" strokeWidth={2} />
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={() => {
+                        setShowCamera(false);
+                        setActiveSource(null);
+                      }}
+                      disabled={analyzing}
+                    >
+                      <X size={24} color="white" />
+                    </TouchableOpacity>
+                    {/* Color name display - positioned between color code and close button */}
+                    {!analyzing && selectedColorName && (
+                      <View style={styles.colorNameContainer}>
+                        <Text style={styles.colorNameText}>
+                          {selectedColorName}
+                        </Text>
+                      </View>
+                    )}
+                    {/* Color preview overlay */}
+                    {!analyzing && (
+                      <View style={styles.colorPreview}>
+                        <View
+                          style={[
+                            styles.colorSwatch,
+                            { backgroundColor: selectedColor },
+                          ]}
+                        />
+                        <Text style={styles.colorText}>
+                          {selectedColor.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.cameraControls}>
+                      <TouchableOpacity
+                        style={[
+                          styles.captureButton,
+                          { opacity: analyzing ? 0.5 : 1 },
+                        ]}
+                        onPress={takePicture}
+                        disabled={analyzing}
+                      >
+                        <View style={styles.captureButtonInner} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.analyzeButton,
+                          { opacity: analyzing ? 0.5 : 1 },
+                        ]}
+                        onPress={analyzeFrameInRealTime}
+                        disabled={analyzing}
+                      >
+                        <Text style={styles.analyzeButtonText}>
+                          {analyzing ? "Analyzing..." : "Analyze"}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  )}
-                  {/* Center crosshair for real-time analysis */}
-                  {!analyzing && (
-                    <View style={styles.centerCrosshair}>
-                      <Plus size={50} color="white" strokeWidth={2} />
-                    </View>
-                  )}
+                  </View>
+                </>
+              ) : (
+                <View style={styles.noCameraAccess}>
+                  <Text>No access to camera</Text>
+                  <TouchableOpacity
+                    style={styles.permissionButton}
+                    onPress={requestPermission}
+                  >
+                    <Text style={styles.permissionButtonText}>
+                      Grant Permission
+                    </Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={() => {
                       setShowCamera(false);
                       setActiveSource(null);
                     }}
-                    disabled={analyzing}
                   >
-                    <X size={24} color="white" />
+                    <X size={24} color="black" />
                   </TouchableOpacity>
-                  {/* Color name display - positioned between color code and close button */}
-                  {!analyzing && selectedColorName && (
-                    <View style={styles.colorNameContainer}>
-                      <Text style={styles.colorNameText}>
-                        {selectedColorName}
-                      </Text>
-                    </View>
-                  )}
-                  {/* Color preview overlay */}
-                  {!analyzing && (
-                    <View style={styles.colorPreview}>
-                      <View
-                        style={[
-                          styles.colorSwatch,
-                          { backgroundColor: selectedColor },
-                        ]}
-                      />
-                      <Text style={styles.colorText}>
-                        {selectedColor.toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.cameraControls}>
-                    <TouchableOpacity
-                      style={[
-                        styles.captureButton,
-                        { opacity: analyzing ? 0.5 : 1 },
-                      ]}
-                      onPress={takePicture}
-                      disabled={analyzing}
-                    >
-                      <View style={styles.captureButtonInner} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.analyzeButton,
-                        { opacity: analyzing ? 0.5 : 1 },
-                      ]}
-                      onPress={analyzeFrameInRealTime}
-                      disabled={analyzing}
-                    >
-                      <Text style={styles.analyzeButtonText}>
-                        {analyzing ? "Analyzing..." : "Analyze"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
-              </>
-            ) : (
-              <View style={styles.noCameraAccess}>
-                <Text>No access to camera</Text>
-                <TouchableOpacity
-                  style={styles.permissionButton}
-                  onPress={requestPermission}
-                >
-                  <Text style={styles.permissionButtonText}>
-                    Grant Permission
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => {
-                    setShowCamera(false);
-                    setActiveSource(null);
-                  }}
-                >
-                  <X size={24} color="black" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </Modal>
-      </View>
-    </ScrollView>
+              )}
+            </View>
+          </Modal>
+        </View>
+      </ScrollView>
+      {renderColorWheelModal()}
+    </>
   );
 }
 
@@ -1011,5 +1311,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 10,
     textAlign: "center",
+  },
+});
+
+const stylesColorWheel = StyleSheet.create({
+  gestureArea: {
+    position: "absolute",
+    backgroundColor: "transparent",
   },
 });
